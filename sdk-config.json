@@ -1,0 +1,18 @@
+{
+  "encryptType": "ECDSA",
+  "accounts": [],
+  "authentication": {
+    "key": "sdk/sdk.key",
+    "cert": "sdk/sdk.crt",
+    "ca": "sdk/ca.crt"
+  },
+  "nodes": [
+    {
+      "ip": "127.0.0.1",
+      "port": 20200
+    }
+  ],
+  "groupID": "group0",
+  "chainID": "chain0",
+  "timeout": 30000
+}

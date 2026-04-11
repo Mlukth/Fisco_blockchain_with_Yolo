@@ -1,9 +1,9 @@
 /**
- * FISCO BCOS 3.x 节点配置文件
+ * FISCO BCOS 3.x ��节点配置文件（ES Module 版本）
  * 使用 Channel 协议连接本地节点
  */
 
-module.exports = {
+export default {
   // Channel 连接地址（FISCO BCOS 3.x 使用 Channel 协议）
   channelUrl: process.env.FISCO_CHANNEL_URL || '127.0.0.1:20200',
   
@@ -22,7 +22,7 @@ module.exports = {
   // SDK 证书配置（FISCO BCOS 3.x 必需）
   ssl: {
     enable: true,
-    certPath: process.env.SDK_CERT_PATH || './nodes/127.0.0.1/sdk',
+    certPath: process.env.SDK_CERT_PATH || '/home/mmm/fisco/nodes/127.0.0.1/sdk',
     caCert: process.env.SDK_CA_CERT || 'ca.crt',
     sslCert: process.env.SDK_SSL_CERT || 'sdk.crt',
     sslKey: process.env.SDK_SSL_KEY || 'sdk.key'

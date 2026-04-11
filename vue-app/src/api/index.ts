@@ -19,9 +19,9 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// 响应拦截器：处理 401 跳转
+// 响应拦截器：返回 data，处理 401 跳转
 api.interceptors.response.use(
-  (response) => response,
+  (response) => response.data,  // 关键修改：直接返回 data
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token')

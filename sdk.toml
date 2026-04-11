@@ -1,0 +1,13 @@
+[cryptoMaterial]
+certPath = "/home/mmm/fisco/console/conf"
+useSMCrypto = "false"
+
+[network]
+peers=["127.0.0.1:20200"]
+defaultGroup="group0"
+
+[account]
+keyStoreDir = "account"
+
+[threadPool]
+maxBlockingQueueSize = "102400"

@@ -7,7 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@fiscobcos/nodejs-sdk": "^3.8.0",
+    "@fiscobcos/nodejs-sdk": "git+https://gitee.com/FISCO-BCOS/nodejs-sdk.git",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^12.2.0",
     "body-parser": "^1.20.3",
@@ -21,8 +21,5 @@
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "ws": "^8.18.3"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  }
 }

@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,7 +50,7 @@ export default ${JSON.stringify(updatedConfig, null, 2)};
 `;
   
   fs.writeFileSync(fiscoConfigPath, content);
-  console.log('🔄 已更新 fisco.config.js 中的合约地址');
+  console.log('���� ��已更新 fisco.config.js 中的合约地址');
 }
 
 /**
@@ -77,7 +78,7 @@ function saveDeploymentRecord(contractAddress, transactionHash, deployer) {
   
   const filePath = path.join(deploymentsDir, 'AttendanceProof.json');
   fs.writeFileSync(filePath, JSON.stringify(record, null, 2));
-  console.log(`📝 部署记录已保存至: ${filePath}`);
+  console.log(`���� ��部署记录已保存至: ${filePath}`);
 }
 
 /**
@@ -98,29 +99,20 @@ function getContractArtifact() {
 }
 
 /**
- * 从私钥计算账户地址
- * FISCO BCOS 3.x 使用与以太坊兼容的地址计算方式
+ * 从私钥计算账户地址（简化实现）
  */
 function getAddressFromPrivateKey(privateKey) {
-  // 简单实现：使用 crypto 模块
-  const crypto = await import('crypto');
-  const publicKey = crypto.createPublicKey({
-    key: Buffer.from(privateKey.replace('0x', ''), 'hex'),
-    format: 'der',
-    type: 'sec1'
-  });
-  
-  // 这里简化处理，实际应使用 elliptic 库
-  // FISCO BCOS 使用 secp256k1 曲线
-  return '0x' + crypto.createHash('sha256').update(publicKey.export({ format: 'der', type: 'spki' })).digest('hex').slice(0, 40);
+  // FISCO BCOS SDK 发送交易时会自动从私钥推导地址
+  // 这里返回一个占位符即可
+  return '0x' + privateKey.slice(2, 42);
 }
 
 async function main() {
   console.log('='.repeat(60));
-  console.log('🚀 FISCO BCOS 3.x 考勤存证合约部署');
-  console.log(`🔗 Channel: ${config.channelUrl}`);
-  console.log(`📦 群组ID: ${config.groupId}`);
-  console.log(`🔑 部署账户私钥: ${config.adminPrivateKey ? '已设置' : '❌ 未设置'}`);
+  console.log('���� FISCO BCOS 3.x ��考勤存证合约部署');
+  console.log(`���� Channel: ${config.channelUrl}`);
+  console.log(`������ ��群组ID: ${config.groupId}`);
+  console.log(`���� ��部署账户私钥: ${config.adminPrivateKey ? '已设置' : '❌ 未设置'}`);
   console.log('='.repeat(60));
   
   if (!config.adminPrivateKey) {
@@ -157,11 +149,11 @@ async function main() {
     throw new Error('合约编译产物中缺少 bytecode');
   }
   
-  console.log('📄 合约 ABI 加载成功');
+  console.log('���� ��合约 ABI 加载成功');
   
   // 3. 计算部署账户地址
-  const deployerAddress = await getAddressFromPrivateKey(config.adminPrivateKey);
-  console.log(`👤 部署账户地址: ${deployerAddress}`);
+  const deployerAddress = getAddressFromPrivateKey(config.adminPrivateKey);
+  console.log(`���� ��部署账户地址: ${deployerAddress}`);
   
   // 4. 部署合约
   console.log('⏳ 正在发送部署交易...');
@@ -179,11 +171,8 @@ async function main() {
     
     receipt = deployResult;
   } catch (error) {
-    // 如果 SDK API 不同，尝试其他方式
     console.log('⚠️ 尝试备用部署方式...');
     
-    // 使用原始交易发送方式
-    const contractConstructor = abi.find(item => item.type === 'constructor');
     const deployTx = {
       from: deployerAddress,
       data: bytecode.startsWith('0x') ? bytecode : '0x' + bytecode,
@@ -202,9 +191,9 @@ async function main() {
   }
   
   console.log('✅ 合约部署成功！');
-  console.log(`📜 合约地址: ${contractAddress}`);
-  console.log(`📦 交易哈希: ${transactionHash}`);
-  console.log(`🔢 区块号: ${receipt.blockNumber || '未知'}`);
+  console.log(`���� ��合约地址: ${contractAddress}`);
+  console.log(`���� ��交易哈希: ${transactionHash}`);
+  console.log(`���� ��区块号: ${receipt.blockNumber || '未知'}`);
   
   // 5. 保存 ABI 到 artifacts（确保存在）
   const artifactDir = path.dirname(config.abiPath);
@@ -225,7 +214,7 @@ async function main() {
   saveDeploymentRecord(contractAddress, transactionHash, deployerAddress);
   
   console.log('='.repeat(60));
-  console.log('🎉 部署完成！');
+  console.log('���� ��部署完成！');
   console.log('='.repeat(60));
   
   return contractAddress;

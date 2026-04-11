@@ -6,12 +6,12 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 加载环境变量
-import dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // 加载 FISCO 配置
@@ -20,7 +20,6 @@ let fiscoConfig = {};
 
 if (fs.existsSync(fiscoConfigPath)) {
   try {
-    // 动态导入 ES Module
     const configModule = await import(fiscoConfigPath);
     fiscoConfig = configModule.default || configModule;
   } catch (error) {
@@ -55,7 +54,7 @@ export const BLOCKCHAIN_CONFIG = {
   // SSL 证书配置
   SSL: {
     ENABLE: fiscoConfig.ssl?.enable ?? true,
-    CERT_PATH: fiscoConfig.ssl?.certPath || process.env.SDK_CERT_PATH || './nodes/127.0.0.1/sdk',
+    CERT_PATH: fiscoConfig.ssl?.certPath || process.env.SDK_CERT_PATH || '/home/mmm/fisco/nodes/127.0.0.1/sdk',
     CA_CERT: fiscoConfig.ssl?.caCert || process.env.SDK_CA_CERT || 'ca.crt',
     SSL_CERT: fiscoConfig.ssl?.sslCert || process.env.SDK_SSL_CERT || 'sdk.crt',
     SSL_KEY: fiscoConfig.ssl?.sslKey || process.env.SDK_SSL_KEY || 'sdk.key'
@@ -65,24 +64,28 @@ export const BLOCKCHAIN_CONFIG = {
 // 考勤数据存储路径
 export const ATTENDANCE_STORAGE_PATH = process.env.ATTENDANCE_STORAGE_PATH || path.join(__dirname, 'attendance_storage');
 
-// 考勤数据访问URL基础路径
-export const ATTENDANCE_BASE_URL = process.env.ATTENDANCE_BASE_URL || '/api/attendance';
-
 // JWT密钥
 export const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // 服务器端口
 export const PORT = process.env.PORT || 3002;
 
-// CORS允许源
-export const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:5173'];
+// CORS 允许源（包含本地开发前端地址）
+export const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3002',
+  'http://localhost:5173',
+  'http://localhost:8000',
+  'http://192.168.171.157:8000',   // 虚拟机前端地址
+  'http://192.168.171.157:3002'
+];
 
 // 合约 ABI 路径
 export const CONTRACT_ABI_PATH = path.resolve(__dirname, '../artifacts/AttendanceProof.json');
 
 // 输出配置信息
 console.log('='.repeat(60));
-console.log('🔧 FISCO BCOS 3.x 考勤存证系统配置');
+console.log('���� FISCO BCOS 3.x ��考勤存证系统配置');
 console.log(`- Channel URL: ${BLOCKCHAIN_CONFIG.CHANNEL_URL}`);
 console.log(`- 群组ID: ${BLOCKCHAIN_CONFIG.GROUP_ID}`);
 console.log(`- 链ID: ${BLOCKCHAIN_CONFIG.CHAIN_ID}`);
@@ -94,7 +97,7 @@ console.log('='.repeat(60));
 
 // 确保存储目录存在
 if (!fs.existsSync(ATTENDANCE_STORAGE_PATH)) {
-  console.log('📁 考勤存储目录不存在，正在创建...');
+  console.log('���� ��考勤存储目录不存在，正在创建...');
   fs.mkdirSync(ATTENDANCE_STORAGE_PATH, { recursive: true });
 }
 
@@ -114,15 +117,11 @@ export function getCertPaths() {
  * 动态重载配置函数（用于部署后更新合约地址）
  */
 export async function reloadConfig() {
-  console.log('🔄 重新加载FISCO配置...');
+  console.log('���� ��重新加载FISCO配置...');
   
   try {
-    // 清除模块缓存
-    const modulePath = require.resolve(fiscoConfigPath);
-    delete require.cache[modulePath];
-    
-    // 重新导入
-    const configModule = await import(fiscoConfigPath + '?t=' + Date.now());
+    const modulePath = path.resolve(fiscoConfigPath);
+    const configModule = await import(modulePath + '?t=' + Date.now());
     const newConfig = configModule.default || configModule;
     
     BLOCKCHAIN_CONFIG.CHANNEL_URL = newConfig.channelUrl;
@@ -195,3 +194,6 @@ setTimeout(() => {
     console.warn('⚠️ 合约地址未设置，请先部署合约');
   }
 }, 1000);
+
+// 别名导出（兼容旧代码）
+export const IMAGE_STORAGE_PATH = ATTENDANCE_STORAGE_PATH;
