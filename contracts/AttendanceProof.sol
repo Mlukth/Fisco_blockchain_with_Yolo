@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
-
-import "@openzeppelin/contracts/access/Ownable.sol";
+pragma solidity ^0.8.11;
 
 /**
  * @title AttendanceProof
  * @dev 匿名考勤存证合约，用于存储每日考勤数据的默克尔根和时间戳
+ * FISCO BCOS 3.x 兼容版本
  */
-contract AttendanceProof is Ownable {
+contract AttendanceProof {
+    // 合约拥有者地址
+    address private _owner;
+    
     // 默克尔根 => 时间戳
     mapping(bytes32 => uint256) private merkleRootTimestamps;
     
@@ -26,10 +28,49 @@ contract AttendanceProof is Ownable {
     // 事件：默克尔根被删除（仅管理员）
     event MerkleRootDeleted(bytes32 indexed root, address indexed admin);
     
+    // 事件：所有权转移
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    
     /**
      * @dev 构造函数，设置合约拥有者
      */
-    constructor() Ownable(msg.sender) {}
+    constructor() {
+        _owner = msg.sender;
+        emit OwnershipTransferred(address(0), msg.sender);
+    }
+    
+    /**
+     * @dev 返回当前拥有者地址
+     */
+    function owner() public view returns (address) {
+        return _owner;
+    }
+    
+    /**
+     * @dev 修饰符：仅限拥有者调用
+     */
+    modifier onlyOwner() {
+        require(msg.sender == _owner, "AttendanceProof: caller is not the owner");
+        _;
+    }
+    
+    /**
+     * @dev 放弃所有权（谨慎使用）
+     */
+    function renounceOwnership() external onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+    
+    /**
+     * @dev 转移所有权
+     * @param newOwner 新拥有者地址
+     */
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "AttendanceProof: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
     
     /**
      * @dev 上传考勤默克尔根
