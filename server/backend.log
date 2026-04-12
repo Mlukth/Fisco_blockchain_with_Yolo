@@ -5,36 +5,27 @@ nohup: ignoring input
 - 群组ID: group0
 - 链ID: chain0
 - 合约地址: 0x4721d1a77e0e76851d460073e64ea06d9c104194
-- 证书路径: /home/mmm/Fisco_blockchain_with_Yolo/sdk
+- 证书路径: /home/mmm/fisco/nodes/127.0.0.1/sdk
 - 考勤存储路径: ./attendance_storage
 - 允许完全重置: 是
 ============================================================
-✅ 后端服务启动成功，端口: 3002
-📡 健康检查: http://localhost:3002/api/health
-✅ 配置验证通过
-📤 上传默克尔根: 0x5b04b849c8b3ebdbaa1686149aec871e6f019172fa1e143de4e4e4bda3c1d5e6
-❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object
-上链失败: TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string. Received an instance of Object
-    at Object.dirname (node:path:1408:5)
-    at new Configuration (/home/mmm/Fisco_blockchain_with_Yolo/node_modules/@fiscobcos/nodejs-sdk/packages/api/common/configuration/configuration.js:59:31)
-    at initWeb3Service (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:35:20)
-    at async getContractInstance (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:63:16)
-    at async sendContractTransaction (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:99:20)
-    at async uploadMerkleRoot (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:151:10)
-    at async file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/attend.js:108:21 {
-  code: 'ERR_INVALID_ARG_TYPE'
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:3002
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at doListen (node:net:2139:7)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 3002
 }
-❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object
-验证失败: TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string. Received an instance of Object
-    at Object.dirname (node:path:1408:5)
-    at new Configuration (/home/mmm/Fisco_blockchain_with_Yolo/node_modules/@fiscobcos/nodejs-sdk/packages/api/common/configuration/configuration.js:59:31)
-    at initWeb3Service (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:35:20)
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-    at async getContractInstance (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:63:16)
-    at async callContractMethod (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:79:20)
-    at async verifyMerkleRoot (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:155:18)
-    at async file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/attend.js:144:20 {
-  code: 'ERR_INVALID_ARG_TYPE'
-}
-❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object
-❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object
+
+Node.js v20.20.2

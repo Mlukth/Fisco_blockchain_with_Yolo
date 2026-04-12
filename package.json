@@ -38,6 +38,7 @@
     "keccak": "^3.0.4",
     "merkletreejs": "^0.3.11",
     "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0",
     "node-forge": "^1.4.0",
     "pem-file": "^1.0.1",
     "rlp": "^3.0.0",
