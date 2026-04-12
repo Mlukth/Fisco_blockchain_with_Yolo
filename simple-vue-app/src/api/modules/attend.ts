@@ -12,12 +12,30 @@ export interface VerifyMerkleRootResponse {
   message: string
 }
 
+export interface BatchVerifyResponse {
+  success: boolean
+  validCount: number
+  invalidCount: number
+  details: Array<{
+    merkleRoot: string
+    exists: boolean
+    timestamp: number | null
+  }>
+}
+
 export const attendApi = {
   /**
-   * 验证默克尔根是否在链上
+   * 验证单个默克尔根是否在链上
    */
   verifyMerkleRoot: (merkleRoot: string): Promise<VerifyMerkleRootResponse> => {
     return api.post('/attend/verify-merkle-root', { merkleRoot })
+  },
+
+  /**
+   * 批量验证默克尔根（核心功能：一键验真）
+   */
+  batchVerifyMerkleRoot: (merkleRootList: string[]): Promise<BatchVerifyResponse> => {
+    return api.post('/attend/batch-verify', { merkleRootList })
   },
 
   /**

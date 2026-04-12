@@ -1,44 +1,19 @@
 nohup: ignoring input
-============================================================
-���� FISCO BCOS 3.x ��考勤存证系统配置
-- Channel URL: 127.0.0.1:20200
-- 群组ID: group0
-- 链ID: chain0
-- 合约地址: 0x4721d1a77e0e76851d460073e64ea06d9c104194
-- 证书路径: /home/mmm/fisco/nodes/127.0.0.1/sdk
-- 考勤存储路径: ./server/attendance_storage
-- 允许完全重置: 是
-============================================================
-✅ 配置验证通过
-🚀 考勤系统后端启动成功！端口: 3002
-✅ 配置验证通过
-📤 上传默克尔根: 0x1c5d3e8feafd58ceb1a7e0eb9fbefb358cc5d17c8b10ef1946777a37903b09d3
-📅 时间戳: 1775986004
-❌ SDK 初始化失败: Package subpath './v4' is not defined by "exports" in /home/mmm/Fisco_blockchain_with_Yolo/node_modules/uuid/package.json
-上链失败: Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './v4' is not defined by "exports" in /home/mmm/Fisco_blockchain_with_Yolo/node_modules/uuid/package.json
-    at exportsNotFound (node:internal/modules/esm/resolve:322:10)
-    at packageExportsResolve (node:internal/modules/esm/resolve:670:9)
-    at resolveExports (node:internal/modules/cjs/loader:638:36)
-    at Module._findPath (node:internal/modules/cjs/loader:711:31)
-    at Module._resolveFilename (node:internal/modules/cjs/loader:1193:27)
-    at Module._load (node:internal/modules/cjs/loader:1038:27)
-    at Module.require (node:internal/modules/cjs/loader:1289:19)
-    at require (node:internal/modules/helpers:182:18)
-    at Object.<anonymous> (/home/mmm/Fisco_blockchain_with_Yolo/node_modules/@fiscobcos/nodejs-sdk/packages/api/common/network/channelPromise.js:20:16)
-    at Module._compile (node:internal/modules/cjs/loader:1521:14) {
-  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'
+node:internal/modules/esm/resolve:283
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/mmm/Fisco_blockchain_with_Yolo/server/routes/history.js' imported from /home/mmm/Fisco_blockchain_with_Yolo/server/index.js
+    at finalizeResolution (node:internal/modules/esm/resolve:283:11)
+    at moduleResolve (node:internal/modules/esm/resolve:952:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/history.js'
 }
-❌ SDK 初始化失败: Package subpath './v4' is not defined by "exports" in /home/mmm/Fisco_blockchain_with_Yolo/node_modules/uuid/package.json
-验证失败: Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './v4' is not defined by "exports" in /home/mmm/Fisco_blockchain_with_Yolo/node_modules/uuid/package.json
-    at exportsNotFound (node:internal/modules/esm/resolve:322:10)
-    at packageExportsResolve (node:internal/modules/esm/resolve:670:9)
-    at resolveExports (node:internal/modules/cjs/loader:638:36)
-    at Module._findPath (node:internal/modules/cjs/loader:711:31)
-    at Module._resolveFilename (node:internal/modules/cjs/loader:1193:27)
-    at Module._load (node:internal/modules/cjs/loader:1038:27)
-    at Module.require (node:internal/modules/cjs/loader:1289:19)
-    at require (node:internal/modules/helpers:182:18)
-    at Object.<anonymous> (/home/mmm/Fisco_blockchain_with_Yolo/node_modules/@fiscobcos/nodejs-sdk/packages/api/common/network/channelPromise.js:20:16)
-    at Module._compile (node:internal/modules/cjs/loader:1521:14) {
-  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'
-}
+
+Node.js v20.20.2

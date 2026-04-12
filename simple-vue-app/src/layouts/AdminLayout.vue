@@ -8,9 +8,6 @@ const router = useRouter()
 const menu = [
   { path: '/admin/dashboard', name: '系统首页', icon: '🏠' },
   { path: '/admin/users', name: '用户管理', icon: '👥' },
-  { path: '/admin/devices', name: '设备管理', icon: '📱' },
-  { path: '/admin/config', name: '系统配置', icon: '⚙️' },
-  { path: '/admin/diagnosis', name: '系统诊断', icon: '🔧' },
 ]
 </script>
 

@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { parentApi, type ParentStudent, type ParentHistoryRecord } from '@/api/modules/parent'
 import { attendApi } from '@/api/modules/attend'
+import { ElMessage } from 'element-plus'
 
 const loading = ref(true)
 const children = ref<ParentStudent[]>([])
@@ -11,6 +12,9 @@ const month = ref(new Date().toISOString().slice(0, 7)) // YYYY-MM
 const summary = ref({ present: 0, late: 0, absent: 0, leave: 0 })
 const records = ref<ParentHistoryRecord[]>([])
 const studentInfo = ref<{ name: string; anonymousId: string; class: string } | null>(null)
+
+const verifyingBatch = ref(false)
+const verifyingSingle = ref<Record<string, boolean>>({})
 
 const statusText: Record<string, { text: string; class: string }> = {
   present: { text: '✅ 出勤', class: 'tag-green' },
@@ -41,15 +45,62 @@ const fetchHistory = async () => {
     studentInfo.value = res.data.student
   } catch (err) {
     console.error('获取历史记录失败', err)
-    alert('获取历史记录失败')
+    ElMessage.error('获取历史记录失败')
   } finally {
     loading.value = false
   }
 }
 
+/**
+ * 单条验真
+ */
 const verifyRecord = async (record: ParentHistoryRecord) => {
-  // 实际验真需要默克尔根，这里先提示
-  alert(`验证 ${record.time.slice(0, 10)} 的考勤数据... 功能需完善`)
+  if (!record.merkleRoot) {
+    ElMessage.warning('该记录尚未上链，无法验真')
+    return
+  }
+  const key = String(record.id)
+  verifyingSingle.value[key] = true
+  try {
+    const res = await attendApi.verifyMerkleRoot(record.merkleRoot)
+    if (res.exists) {
+      const timeStr = res.timestamp ? new Date(res.timestamp * 1000).toLocaleString() : '未知时间'
+      ElMessage.success(`验真成功：该记录于 ${timeStr} 上链，不可篡改`)
+    } else {
+      ElMessage.error('验真失败：该记录未上链或已被篡改')
+    }
+  } catch (err: any) {
+    ElMessage.error('验真失败：' + (err.message || '网络错误'))
+  } finally {
+    verifyingSingle.value[key] = false
+  }
+}
+
+/**
+ * 批量验真（月度记录）
+ */
+const batchVerify = async () => {
+  // 过滤出有 merkleRoot 的记录
+  const validRecords = records.value.filter(r => r.merkleRoot)
+  if (validRecords.length === 0) {
+    ElMessage.warning('当前月份没有可验真的记录（均未上链）')
+    return
+  }
+
+  verifyingBatch.value = true
+  const merkleRootList = validRecords.map(r => r.merkleRoot!)
+  try {
+    const res = await attendApi.batchVerifyMerkleRoot(merkleRootList)
+    ElMessage.success({
+      message: `批量验真完成：有效存证 ${res.validCount} 条，无效 ${res.invalidCount} 条`,
+      duration: 5000
+    })
+    // 可进一步在界面上标记哪些记录验证通过/失败，此处仅做提示
+  } catch (err: any) {
+    ElMessage.error('批量验真失败：' + (err.message || '网络错误'))
+  } finally {
+    verifyingBatch.value = false
+  }
 }
 
 watch([selectedAnonymousId, month], () => {
@@ -117,7 +168,14 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 历史记录 -->
+      <!-- 批量验真按钮 -->
+      <div style="margin-bottom: 16px">
+        <button class="btn btn-primary" @click="batchVerify" :disabled="verifyingBatch">
+          {{ verifyingBatch ? '验真中...' : '🔍 一键批量验真（月度记录）' }}
+        </button>
+      </div>
+
+      <!-- 历史记录表格 -->
       <div class="card">
         <div class="card-header">📋 考勤记录</div>
         <table v-if="records.length > 0">
@@ -138,10 +196,18 @@ onMounted(async () => {
               <td><span :class="statusText[r.status]?.class">{{ statusText[r.status]?.text }}</span></td>
               <td>{{ r.time?.slice(11, 19) }}</td>
               <td>
-                <span v-if="r.is_reviewed" class="tag tag-green">✅ 已上链</span>
+                <span v-if="r.merkleRoot" class="tag tag-green">✅ 已上链</span>
                 <span v-else class="tag tag-orange">⏳ 待上链</span>
               </td>
-              <td><button class="btn btn-default" @click="verifyRecord(r)">验真</button></td>
+              <td>
+                <button
+                  class="btn btn-default"
+                  @click="verifyRecord(r)"
+                  :disabled="verifyingSingle[String(r.id)]"
+                >
+                  {{ verifyingSingle[String(r.id)] ? '验证中' : '验真' }}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>

@@ -34,22 +34,26 @@ const fetchData = async () => {
 }
 
 const verify = async () => {
-  if (!selectedChild.value?.attendance?.time) {
+  const attendance = selectedChild.value?.attendance
+  if (!attendance || !attendance.time) {
     alert('今日暂无考勤记录，无法验真')
     return
   }
+  if (!attendance.merkleRoot) {
+    alert('该考勤记录尚未上链，无法验真')
+    return
+  }
+
   verifying.value = true
   verifyResult.value = null
   try {
-    // 注意：验真需要提供默克尔根，实际应从考勤记录中获取或调用对应接口
-    // 这里简化为调用验证接口，传入匿名ID对应的默克尔根（需后端支持）
-    const res = await attendApi.verifyMerkleRoot({ merkleRoot: '' }) // 待完善
+    const res = await attendApi.verifyMerkleRoot(attendance.merkleRoot)
     verifyResult.value = {
-      success: res.data.exists,
-      merkleRoot: res.data.merkleRoot,
-      blockHeight: res.data.blockHeight,
-      timestamp: new Date(res.data.timestamp * 1000).toLocaleString(),
-      txHash: res.data.txHash
+      success: res.exists,
+      merkleRoot: res.merkleRoot,
+      blockHeight: null, // 后端接口可扩展返回区块高度
+      timestamp: res.timestamp ? new Date(res.timestamp * 1000).toLocaleString() : null,
+      txHash: null
     }
   } catch (err: any) {
     verifyResult.value = { success: false, error: err.message }
@@ -126,19 +130,11 @@ onMounted(fetchData)
           <div v-if="verifyResult.success" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
             <div style="background: #f6ffed; padding: 12px; border-radius: 8px">
               <div style="color: #999; font-size: 12px">默克尔根</div>
-              <div style="font-family: monospace">{{ verifyResult.merkleRoot }}</div>
+              <div style="font-family: monospace; word-break: break-all">{{ verifyResult.merkleRoot }}</div>
             </div>
             <div style="background: #f6ffed; padding: 12px; border-radius: 8px">
-              <div style="color: #999; font-size: 12px">区块高度</div>
-              <div>{{ verifyResult.blockHeight }}</div>
-            </div>
-            <div style="background: #f6ffed; padding: 12px; border-radius: 8px">
-              <div style="color: #999; font-size: 12px">链上时间</div>
-              <div>{{ verifyResult.timestamp }}</div>
-            </div>
-            <div style="background: #f6ffed; padding: 12px; border-radius: 8px">
-              <div style="color: #999; font-size: 12px">交易哈希</div>
-              <div style="font-family: monospace">{{ verifyResult.txHash }}</div>
+              <div style="color: #999; font-size: 12px">上链时间</div>
+              <div>{{ verifyResult.timestamp || '未知' }}</div>
             </div>
           </div>
           <div v-else style="color: #ff4d4f; text-align: center; padding: 20px">
