@@ -1,8 +1,4 @@
 nohup: ignoring input
-
-> fisco-attendance-server@1.0.0 start
-> node index.js
-
 ============================================================
 ���� FISCO BCOS 3.x ��考勤存证系统配置
 - Channel URL: 127.0.0.1:20200
@@ -16,25 +12,3 @@ nohup: ignoring input
 ✅ 配置验证通过
 🚀 考勤系统后端启动成功！端口: 3002
 ✅ 配置验证通过
-SqliteError: no such column: phone
-    at Database.prepare (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21)
-    at Object.getAllUsers (file:///home/mmm/Fisco_blockchain_with_Yolo/server/db/index.js:153:20)
-    at file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/admin.js:58:22
-    at Layer.handle [as handle_request] (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/layer.js:95:5)
-    at next (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/route.js:149:13)
-    at Route.dispatch (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/route.js:119:3)
-    at Layer.handle [as handle_request] (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/layer.js:95:5)
-    at /home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/index.js:284:15
-    at Function.process_params (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/index.js:346:12)
-    at next (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/index.js:280:10)
-SqliteError: no such column: phone
-    at Database.prepare (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21)
-    at Object.getAllUsers (file:///home/mmm/Fisco_blockchain_with_Yolo/server/db/index.js:153:20)
-    at file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/admin.js:58:22
-    at Layer.handle [as handle_request] (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/layer.js:95:5)
-    at next (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/route.js:149:13)
-    at Route.dispatch (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/route.js:119:3)
-    at Layer.handle [as handle_request] (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/layer.js:95:5)
-    at /home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/index.js:284:15
-    at Function.process_params (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/index.js:346:12)
-    at next (/home/mmm/Fisco_blockchain_with_Yolo/server/node_modules/express/lib/router/index.js:280:10)
