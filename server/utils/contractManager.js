@@ -1,10 +1,13 @@
 /**
- * 合约管理器 - 精简版（考勤存证核心）
- * 处理与区块链合约的交互
+ * 合约管理器 - FISCO BCOS 3.x 版本
  */
-
-import { BLOCKCHAIN_CONFIG, loadContractABI, getCertPaths } from '../config.js';
+import { BLOCKCHAIN_CONFIG, loadContractABI } from '../config.js';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let web3Service = null;
 let contractInstance = null;
@@ -16,23 +19,19 @@ async function initWeb3Service() {
   if (web3Service) return web3Service;
 
   try {
-    const { Web3jService, Configuration } = await import('@fiscobcos/nodejs-sdk');
+    const sdkPath = '/home/mmm/Fisco_blockchain_with_Yolo/node_modules/@fiscobcos/nodejs-sdk/packages/api/index.js';
+    const { Web3jService, Configuration } = await import(sdkPath);
+
+    // 使用 JSON 配置文件路径（FISCO SDK 要求）
+    const configPath = '/home/mmm/Fisco_blockchain_with_Yolo/sdk-config.json';
     
-    const certPaths = getCertPaths();
-    for (const [name, certPath] of Object.entries(certPaths)) {
-      if (!fs.existsSync(certPath)) {
-        throw new Error(`证书文件不存在: ${certPath}`);
-      }
+    if (!fs.existsSync(configPath)) {
+      throw new Error(`SDK 配置文件不存在: ${configPath}`);
     }
 
-    const config = new Configuration({
-      peers: [BLOCKCHAIN_CONFIG.CHANNEL_URL],
-      group: BLOCKCHAIN_CONFIG.GROUP_ID,
-      chain: BLOCKCHAIN_CONFIG.CHAIN_ID,
-      certPath: BLOCKCHAIN_CONFIG.SSL.CERT_PATH,
-      timeout: 30000
-    });
-
+    // Configuration 构造函数需要配置文件路径，不是对象
+    const config = new Configuration(configPath);
+    
     web3Service = new Web3jService(config);
     console.log('✅ FISCO BCOS 3.x SDK 初始化成功');
     return web3Service;
@@ -60,6 +59,7 @@ async function getContractInstance() {
     abi: abi,
     web3: web3
   };
+
   return contractInstance;
 }
 
@@ -68,6 +68,7 @@ async function getContractInstance() {
  */
 async function callContractMethod(methodName, params = []) {
   const contract = await getContractInstance();
+
   try {
     const result = await contract.web3.call(
       contract.address,
@@ -87,9 +88,9 @@ async function callContractMethod(methodName, params = []) {
  */
 async function sendContractTransaction(methodName, params = [], options = {}) {
   const contract = await getContractInstance();
-  
+
   if (!BLOCKCHAIN_CONFIG.ADMIN_PRIVATE_KEY) {
-    throw new Error('管理员私钥未设置');
+    throw new Error('管理员私钥未设置，无法发送交易');
   }
 
   try {
@@ -119,12 +120,15 @@ export async function verifyContractDeployment() {
   if (!BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS) {
     return { valid: false, reason: '合约地址未设置' };
   }
+
   try {
     const web3 = await initWeb3Service();
     const code = await web3.getCode(BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS);
+
     if (code === '0x' || code === '0x0') {
       return { valid: false, reason: '合约地址没有代码' };
     }
+
     return { valid: true, address: BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS };
   } catch (error) {
     return { valid: false, reason: error.message };

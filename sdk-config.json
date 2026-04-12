@@ -1,18 +1,23 @@
 {
-  "encryptType": "ECDSA",
-  "accounts": [],
   "authentication": {
-    "key": "sdk/sdk.key",
-    "cert": "sdk/sdk.crt",
-    "ca": "sdk/ca.crt"
+    "key": "/home/mmm/fisco/nodes/127.0.0.1/sdk/sdk.key",
+    "cert": "/home/mmm/fisco/nodes/127.0.0.1/sdk/sdk.crt",
+    "ca": "/home/mmm/fisco/nodes/127.0.0.1/sdk/ca.crt"
   },
+  "encryptType": "ECDSA",
   "nodes": [
     {
       "ip": "127.0.0.1",
-      "port": 20200
+      "port": "20200"
     }
   ],
-  "groupID": "group0",
-  "chainID": "chain0",
-  "timeout": 30000
+  "groupID": 1,
+  "chainID": 1,
+  "timeout": 30000,
+  "accounts": {
+    "admin": {
+      "type": "ecrandom",
+      "value": "7643a9ef539fbef9170688be1e76e0c531a718fdc80f498604498ca149176136"
+    }
+  }
 }

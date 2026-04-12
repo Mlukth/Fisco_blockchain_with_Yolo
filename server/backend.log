@@ -1,19 +1,40 @@
 nohup: ignoring input
-node:internal/modules/esm/resolve:283
-    throw new ERR_MODULE_NOT_FOUND(
-          ^
-
-Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/mmm/Fisco_blockchain_with_Yolo/server/routes/history.js' imported from /home/mmm/Fisco_blockchain_with_Yolo/server/index.js
-    at finalizeResolution (node:internal/modules/esm/resolve:283:11)
-    at moduleResolve (node:internal/modules/esm/resolve:952:10)
-    at defaultResolve (node:internal/modules/esm/resolve:1188:11)
-    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
-    at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
-    at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
-    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
-    at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
-  code: 'ERR_MODULE_NOT_FOUND',
-  url: 'file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/history.js'
+============================================================
+���� FISCO BCOS 3.x ��考勤存证系统配置
+- Channel URL: 127.0.0.1:20200
+- 群组ID: group0
+- 链ID: chain0
+- 合约地址: 0x4721d1a77e0e76851d460073e64ea06d9c104194
+- 证书路径: /home/mmm/Fisco_blockchain_with_Yolo/sdk
+- 考勤存储路径: ./attendance_storage
+- 允许完全重置: 是
+============================================================
+✅ 后端服务启动成功，端口: 3002
+📡 健康检查: http://localhost:3002/api/health
+✅ 配置验证通过
+📤 上传默克尔根: 0x5b04b849c8b3ebdbaa1686149aec871e6f019172fa1e143de4e4e4bda3c1d5e6
+❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object
+上链失败: TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string. Received an instance of Object
+    at Object.dirname (node:path:1408:5)
+    at new Configuration (/home/mmm/Fisco_blockchain_with_Yolo/node_modules/@fiscobcos/nodejs-sdk/packages/api/common/configuration/configuration.js:59:31)
+    at initWeb3Service (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:35:20)
+    at async getContractInstance (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:63:16)
+    at async sendContractTransaction (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:99:20)
+    at async uploadMerkleRoot (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:151:10)
+    at async file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/attend.js:108:21 {
+  code: 'ERR_INVALID_ARG_TYPE'
 }
-
-Node.js v20.20.2
+❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object
+验证失败: TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string. Received an instance of Object
+    at Object.dirname (node:path:1408:5)
+    at new Configuration (/home/mmm/Fisco_blockchain_with_Yolo/node_modules/@fiscobcos/nodejs-sdk/packages/api/common/configuration/configuration.js:59:31)
+    at initWeb3Service (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:35:20)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async getContractInstance (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:63:16)
+    at async callContractMethod (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:79:20)
+    at async verifyMerkleRoot (file:///home/mmm/Fisco_blockchain_with_Yolo/server/utils/contractManager.js:155:18)
+    at async file:///home/mmm/Fisco_blockchain_with_Yolo/server/routes/attend.js:144:20 {
+  code: 'ERR_INVALID_ARG_TYPE'
+}
+❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object
+❌ SDK 初始化失败: The "path" argument must be of type string. Received an instance of Object

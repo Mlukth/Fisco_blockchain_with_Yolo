@@ -56,8 +56,8 @@ export const BLOCKCHAIN_CONFIG = {
     ENABLE: fiscoConfig.ssl?.enable ?? true,
     CERT_PATH: fiscoConfig.ssl?.certPath || process.env.SDK_CERT_PATH || '/home/mmm/fisco/nodes/127.0.0.1/sdk',
     CA_CERT: fiscoConfig.ssl?.caCert || process.env.SDK_CA_CERT || 'ca.crt',
-    SSL_CERT: fiscoConfig.ssl?.sslCert || process.env.SDK_SSL_CERT || 'sdk.crt',
-    SSL_KEY: fiscoConfig.ssl?.sslKey || process.env.SDK_SSL_KEY || 'sdk.key'
+    SSL_CERT: fiscoConfig.ssl?.sdkCert || process.env.SDK_SSL_CERT || 'sdk.crt',
+    SSL_KEY: fiscoConfig.ssl?.sdkKey || process.env.SDK_SSL_KEY || 'sdk.key'
   }
 };
 

@@ -1,81 +1,65 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import fs from 'fs';
 
+// 路由导入
+import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
+import teacherRoutes from './routes/teacher.js';
+import parentRoutes from './routes/parent.js';
+import attendRoutes from './routes/attend.js';
+
+// 注意：已删除 history.js、debug.js、protected.js 路由
+
 dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
-
-import { PORT, ALLOWED_ORIGINS, ATTENDANCE_STORAGE_PATH, BLOCKCHAIN_CONFIG, validateConfig } from './config.js';
-
-import authRouter from './routes/auth.js';
-import attendRouter from './routes/attend.js';
-import historyRouter from './routes/history.js';
-import debugRouter from './routes/debug.js';
-import protectedRouter from './routes/protected.js';
-import adminRouter from './routes/admin.js';
-import teacherRouter from './routes/teacher.js';
-import parentRouter from './routes/parent.js';
-
-import { authenticateToken } from './middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const PORT = process.env.PORT || 3002;
 
-app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
-app.use(express.json());
+// 中间件
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/attendance-files', express.static(ATTENDANCE_STORAGE_PATH));
+// 静态文件服务（如果需要）
+const uploadsPath = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath));
 
-// 路由注册
-app.use('/api/auth', authRouter);
-app.use('/api/attend', attendRouter);
-app.use('/api/history', historyRouter);
-app.use('/api/debug', debugRouter);
-app.use('/api/protected', authenticateToken, protectedRouter);
-
-// 新增角色路由
-app.use('/api/admin', adminRouter);
-app.use('/api/teacher', teacherRouter);
-app.use('/api/parent', parentRouter);
-
+// 健康检查
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/api/blockchain/status', (req, res) => {
-    res.json({
-        connected: !!BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS,
-        channelUrl: BLOCKCHAIN_CONFIG.CHANNEL_URL,
-        groupId: BLOCKCHAIN_CONFIG.GROUP_ID,
-        chainId: BLOCKCHAIN_CONFIG.CHAIN_ID,
-        contractAddress: BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS || null
-    });
+// 注册路由
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/teacher', teacherRoutes);
+app.use('/api/parent', parentRoutes);
+app.use('/api/attend', attendRoutes);
+
+// 404 处理
+app.use((req, res) => {
+    res.status(404).json({ success: false, error: '接口不存在' });
 });
 
-async function startServer() {
-    try {
-        if (!fs.existsSync(ATTENDANCE_STORAGE_PATH)) {
-            fs.mkdirSync(ATTENDANCE_STORAGE_PATH, { recursive: true });
-        }
-        if (BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS) {
-            validateConfig();
-        } else {
-            console.warn('⚠️ 合约地址未设置，请先部署合约');
-        }
-        app.listen(PORT, () => {
-            console.log(`🚀 考勤系统后端启动成功！端口: ${PORT}`);
-        });
-    } catch (error) {
-        console.error('❌ 服务启动失败:', error);
-        process.exit(1);
-    }
-}
+// 错误处理中间件
+app.use((err, req, res, next) => {
+    console.error('服务器错误:', err.stack);
+    res.status(500).json({ success: false, error: '服务器内部错误' });
+});
 
-startServer();
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ 后端服务启动成功，端口: ${PORT}`);
+    console.log(`📡 健康检查: http://localhost:${PORT}/api/health`);
+});
 
 export default app;

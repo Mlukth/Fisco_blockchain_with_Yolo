@@ -28,7 +28,6 @@ export const getDb = () => {
 };
 
 const initDatabase = (db) => {
-    // 用户表（精简字段）
     db.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +38,6 @@ const initDatabase = (db) => {
         )
     `);
 
-    // 考勤记录表（精简字段，保留 merkle_root 用于验真）
     db.exec(`
         CREATE TABLE IF NOT EXISTS attendance_records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +53,6 @@ const initDatabase = (db) => {
         CREATE INDEX IF NOT EXISTS idx_attendance_time ON attendance_records(time);
     `);
 
-    // 存证历史表（仅存默克尔根与区块信息）
     db.exec(`
         CREATE TABLE IF NOT EXISTS attendance_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,18 +62,6 @@ const initDatabase = (db) => {
         );
         CREATE INDEX IF NOT EXISTS idx_history_root ON attendance_history(merkle_root);
     `);
-
-    // 尝试为旧表补充字段（兼容旧数据库）
-    try {
-        const tableInfo = db.prepare(`PRAGMA table_info(users)`).all();
-        const cols = tableInfo.map(c => c.name);
-        if (!cols.includes('passwordHash')) {
-            // 旧表可能使用 password 字段，此处仅做兼容提示，不自动迁移
-            console.warn('⚠️ 数据库 users 表结构较旧，建议手动迁移或重新初始化');
-        }
-    } catch (e) {
-        // 忽略
-    }
 
     // 种子用户
     const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
@@ -178,7 +163,6 @@ export const getClassStatistics = (classroomId, date) => {
 };
 
 export const getUnreviewedExceptions = (classroomId = null) => {
-    // 简化：直接返回迟到和缺勤记录（不再有复核状态）
     let sql = `SELECT * FROM attendance_records WHERE status IN ('late', 'absent')`;
     const params = [];
     if (classroomId) {
@@ -206,14 +190,11 @@ export const getHistoryByMerkleRoot = (merkleRoot) => {
     return getDb().prepare('SELECT * FROM attendance_history WHERE merkle_root = ?').get(merkleRoot);
 };
 
-// 兼容旧方法名
-export const addImageRecord = addAttendanceHistory;
 export const getActiveAttendanceRecords = getAttendanceHistory;
 export const getAttendanceRecord = getHistoryByMerkleRoot;
 
-// ========== 辅助：用于仪表盘统计 ==========
+// ========== 辅助统计 ==========
 export const getTotalStudentCount = () => {
-    // 由于删除了 anonymous_map 表，学生数量可通过 attendance_records 中的 distinct anonymous_id 估算
     const result = getDb().prepare(`SELECT COUNT(DISTINCT anonymous_id) as count FROM attendance_records`).get();
     return result.count;
 };
@@ -249,7 +230,6 @@ export default {
     addAttendanceHistory,
     getAttendanceHistory,
     getHistoryByMerkleRoot,
-    addImageRecord,
     getActiveAttendanceRecords,
     getAttendanceRecord,
     getTotalStudentCount,
