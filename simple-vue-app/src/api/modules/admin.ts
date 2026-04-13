@@ -5,8 +5,8 @@ export interface AdminStats {
   totalStudents: number
   totalTeachers: number
   totalParents: number
-  totalDevices: number
-  onlineDevices: number
+  totalDevices: number      // 后端暂未提供，前端默认 0
+  onlineDevices: number     // 后端暂未提供，前端默认 0
   todayAttendanceRate: number
   todayTotal: number
 }
@@ -16,39 +16,39 @@ export interface AdminUser {
   id: number
   username: string
   role: string
-  name: string
+  name?: string
   phone?: string
   classroom_id?: string
   created_at: string
 }
 
-// 异常类型（保留用于仪表盘异常提醒）
-export interface AdminException {
-  type: 'attendance' | 'device'
-  [key: string]: any
-}
-
 export const adminApi = {
-  // ========== 仪表盘统计 ==========
+  // 获取统计信息
   getStats: (): Promise<{ success: boolean; data: AdminStats }> => {
     return api.get('/admin/stats')
   },
 
-  // ========== 用户管理 ==========
+  // 获取用户列表
   getUsers: (role?: string): Promise<{ success: boolean; data: AdminUser[] }> => {
     return api.get('/admin/users', { params: { role } })
   },
+
+  // 创建用户
   createUser: (data: Partial<AdminUser> & { password?: string }): Promise<{ success: boolean; data: { id: number } }> => {
     return api.post('/admin/users', data)
   },
+
+  // 更新用户
   updateUser: (id: number, data: Partial<AdminUser>): Promise<{ success: boolean; changes: number }> => {
     return api.put(`/admin/users/${id}`, data)
   },
+
+  // 删除用户
   deleteUser: (id: number): Promise<{ success: boolean; changes: number }> => {
     return api.delete(`/admin/users/${id}`)
   },
 
-  // ========== 异常提醒（保留，用于仪表盘） ==========
+  // 获取异常提醒
   getExceptions: (): Promise<{ success: boolean; data: { attendance: any[]; devices: any[] } }> => {
     return api.get('/admin/exceptions')
   }
