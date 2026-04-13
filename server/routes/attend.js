@@ -1,16 +1,22 @@
 /**
- * 考勤存证路由 - 精简版（绕过数据库问题）
+ * 考勤存证路由 - 持久化版本
+ * 数据存到数据库，上链操作模拟
  */
 import express from 'express';
 import crypto from 'crypto';
 import { authenticateToken } from '../middleware/auth.js';
 import { BLOCKCHAIN_CONFIG } from '../config.js';
 import { MerkleTree } from 'merkletreejs';
+import Database from 'better-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const router = express.Router();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// 内存存储（临时替代数据库）
-const merkleRootStorage = new Map();
+// 数据库连接
+const dbPath = path.join(__dirname, '../data/users.db');
+const db = new Database(dbPath);
 
 function generateMerkleRoot(records) {
   if (!Array.isArray(records) || records.length === 0) {
@@ -29,6 +35,8 @@ function generateMerkleRoot(records) {
   return '0x' + tree.getRoot().toString('hex');
 }
 
+const router = express.Router();
+
 router.post('/calculate-merkle-root', authenticateToken, (req, res) => {
   try {
     const { records } = req.body;
@@ -44,7 +52,8 @@ router.post('/calculate-merkle-root', authenticateToken, (req, res) => {
 
 router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
   try {
-    const { merkleRoot, attendanceDate } = req.body;
+    const { merkleRoot, attendanceDate, metadata } = req.body;
+    
     if (!merkleRoot || !/^0x[a-fA-F0-9]{64}$/.test(merkleRoot)) {
       return res.status(400).json({ success: false, error: '默克尔根格式错误' });
     }
@@ -52,12 +61,20 @@ router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
     const mockBlockHeight = Math.floor(Math.random() * 10000) + 1000;
     const mockTxHash = '0x' + crypto.randomBytes(32).toString('hex');
     
-    // 存储到内存
-    merkleRootStorage.set(merkleRoot, {
-      timestamp: Date.now(),
-      blockHeight: mockBlockHeight,
-      txHash: mockTxHash
-    });
+    const stmt = db.prepare(`
+      INSERT INTO attendance_records 
+      (anonymous_id, status, time, classroom_id, device_id, merkle_root, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    `);
+    
+    stmt.run(
+      `merkle_${Date.now()}`,
+      'uploaded',
+      attendanceDate || new Date().toISOString(),
+      'blockchain',
+      'fisco-node',
+      merkleRoot
+    );
 
     res.json({
       success: true,
@@ -65,6 +82,7 @@ router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
       data: { merkleRoot, attendanceDate, blockHeight: mockBlockHeight, transactionHash: mockTxHash }
     });
   } catch (error) {
+    console.error('上链失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -76,14 +94,17 @@ router.post('/verify-merkle-root', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: '默克尔根格式错误' });
     }
 
-    const record = merkleRootStorage.get(merkleRoot);
+    const stmt = db.prepare('SELECT * FROM attendance_records WHERE merkle_root = ? AND is_deleted = 0');
+    const record = stmt.get(merkleRoot);
+
     res.json({
       success: true,
       exists: !!record,
-      timestamp: record ? record.timestamp : null,
+      timestamp: record ? record.created_at : null,
       merkleRoot
     });
   } catch (error) {
+    console.error('验证失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -95,10 +116,16 @@ router.post('/batch-verify', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: '请提供默克尔根列表' });
     }
 
+    const placeholders = merkleRootList.map(() => '?').join(',');
+    const stmt = db.prepare(`SELECT merkle_root, created_at FROM attendance_records WHERE merkle_root IN (${placeholders}) AND is_deleted = 0`);
+    const records = stmt.all(...merkleRootList);
+    
+    const recordMap = new Map(records.map(r => [r.merkle_root, r.created_at]));
+    
     const results = merkleRootList.map(root => ({
       merkleRoot: root,
-      exists: merkleRootStorage.has(root),
-      timestamp: merkleRootStorage.get(root)?.timestamp || null
+      exists: recordMap.has(root),
+      timestamp: recordMap.get(root) || null
     }));
 
     res.json({
@@ -108,29 +135,49 @@ router.post('/batch-verify', authenticateToken, async (req, res) => {
       details: results
     });
   } catch (error) {
+    console.error('批量验证失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 router.get('/attendance-history', authenticateToken, async (req, res) => {
-  const records = Array.from(merkleRootStorage.entries()).map(([root, data]) => ({
-    merkleRoot: root,
-    uploadTime: new Date(data.timestamp).toISOString(),
-    blockHeight: data.blockHeight,
-    transactionHash: data.txHash
-  }));
-  res.json({ success: true, data: records, count: records.length });
+  try {
+    const stmt = db.prepare('SELECT * FROM attendance_records WHERE merkle_root IS NOT NULL AND is_deleted = 0 ORDER BY created_at DESC');
+    const records = stmt.all();
+    
+    const formatted = records.map(r => ({
+      id: r.id,
+      merkleRoot: r.merkle_root,
+      attendanceDate: r.time,
+      uploadTime: r.created_at,
+      blockHeight: r.id * 100,
+      classroomId: r.classroom_id,
+      deviceId: r.device_id
+    }));
+    
+    res.json({ success: true, data: formatted, count: formatted.length });
+  } catch (error) {
+    console.error('获取历史失败:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 router.get('/stats', authenticateToken, async (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      chainRecordCount: merkleRootStorage.size,
-      dbRecordCount: merkleRootStorage.size,
-      contractAddress: BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS
-    }
-  });
+  try {
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM attendance_records WHERE merkle_root IS NOT NULL AND is_deleted = 0');
+    const result = stmt.get();
+    
+    res.json({
+      success: true,
+      data: {
+        chainRecordCount: result.count,
+        dbRecordCount: result.count,
+        contractAddress: BLOCKCHAIN_CONFIG.CONTRACT_ADDRESS
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 export default router;
