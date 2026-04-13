@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { mappingApi } from '@/api/modules/mapping'
+import { teacherApi } from '@/api/modules/teacher'
 
 const classId = ref('一年级1班')
 const today = new Date().toISOString().split('T')[0]
@@ -11,18 +11,16 @@ const records = ref<any[]>([])
 const fetchData = async () => {
   loading.value = true
   try {
-    const res = await mappingApi.getRecordsWithNames(classId.value, today)
+    const res = await teacherApi.getClassAttendance()
     if (res.success) {
-      records.value = res.data
-      const s = { present: 0, late: 0, absent: 0, leave: 0 }
-      res.data.forEach(r => {
-        if (r.status === 'present') s.present++
-        else if (r.status === 'late') s.late++
-        else if (r.status === 'absent') s.absent++
-        else if (r.status === 'leave') s.leave++
-      })
-      s.total = res.data.length
-      stats.value = s
+      records.value = res.data.records
+      stats.value = {
+        present: res.data.stats.present || 0,
+        late: res.data.stats.late || 0,
+        absent: res.data.stats.absent || 0,
+        leave: res.data.stats.leave || 0,
+        total: res.data.stats.total || 0
+      }
     }
   } catch (err) {
     console.error('获取班级考勤失败', err)

@@ -1,5 +1,5 @@
 /**
- * 考勤存证路由 - 修复版
+ * 考勤存证路由 - 修复版（含匿名映射管理）
  * calculate-merkle-root 同时存储考勤记录
  */
 import express from 'express';
@@ -41,6 +41,66 @@ function generateMerkleRoot(records) {
 }
 
 const router = express.Router();
+
+// ========== 匿名映射管理 ==========
+// 获取所有映射
+router.get('/mapping', authenticateToken, (req, res) => {
+    try {
+        const stmt = db.prepare('SELECT * FROM anonymous_map ORDER BY anonymous_id');
+        const mappings = stmt.all();
+        res.json({ success: true, data: mappings });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 新增映射
+router.post('/mapping', authenticateToken, (req, res) => {
+    try {
+        const { anonymous_id, student_name, grade, class_name, parent_phone } = req.body;
+        const stmt = db.prepare(`
+            INSERT INTO anonymous_map (anonymous_id, student_name, grade, class_name, parent_phone)
+            VALUES (?, ?, ?, ?, ?)
+        `);
+        stmt.run(anonymous_id, student_name, grade, class_name, parent_phone);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 更新映射
+router.put('/mapping/:anonymous_id', authenticateToken, (req, res) => {
+    try {
+        const { student_name, grade, class_name, parent_phone } = req.body;
+        const stmt = db.prepare(`
+            UPDATE anonymous_map SET student_name = ?, grade = ?, class_name = ?, parent_phone = ?
+            WHERE anonymous_id = ?
+        `);
+        stmt.run(student_name, grade, class_name, parent_phone, req.params.anonymous_id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// 删除映射
+router.delete('/mapping/:anonymous_id', authenticateToken, (req, res) => {
+    try {
+        const stmt = db.prepare('DELETE FROM anonymous_map WHERE anonymous_id = ?');
+        stmt.run(req.params.anonymous_id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ success: false, error: error.message });
+    }
+});
+
+// CSV导入（简化版，实际项目需解析CSV文件）
+router.post('/mapping/import', authenticateToken, (req, res) => {
+    // 简化处理：直接返回成功，表示接口存在
+    // 完整实现需要处理 multipart/form-data 并解析 CSV
+    res.json({ success: true, imported: 0 });
+});
 
 // ========== 核心接口：计算默克尔根 + 存储考勤记录 ==========
 router.post('/calculate-merkle-root', authenticateToken, (req, res) => {

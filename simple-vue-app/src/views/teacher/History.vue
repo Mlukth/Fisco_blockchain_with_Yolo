@@ -36,10 +36,38 @@ const fetchHistory = async () => {
   loading.value = true
   dataReady.value = false
   try {
-    const res = await teacherApi.getHistory(classId.value, selectedMonth.value)
+    // 将月份（2026-04）转换为起始日期和结束日期
+    const [year, month] = selectedMonth.value.split('-')
+    const start = `${year}-${month}-01`
+    // 获取当月最后一天
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate()
+    const end = `${year}-${month}-${lastDay}`
+    
+    const res = await teacherApi.getHistory(start, end)
     if (res.success && res.data) {
-      stats.value = res.data.stats || { present: 0, late: 0, absent: 0, leave: 0 }
-      records.value = res.data.records || []
+      // 后端返回的是按日期聚合的统计数据，前端需要转换展示
+      // 由于后端 /teacher/class/history 返回 summary 和 history 数组
+      // 这里提取汇总信息
+      const summaryData = res.data.summary || { totalDays: 0, avgRate: 0, lateCount: 0, absentCount: 0 }
+      stats.value = {
+        present: Math.round(summaryData.avgRate * (summaryData.totalDays || 1) / 100) || 0,
+        late: summaryData.lateCount || 0,
+        absent: summaryData.absentCount || 0,
+        leave: 0
+      }
+      // 将 history 数组转换为记录明细（每个日期作为一条记录，展示该日期的统计）
+      const historyList = res.data.history || []
+      records.value = historyList.map((item: any) => ({
+        id: item.date,
+        anonymous_id: `班级汇总`,
+        status: 'present',
+        time: item.date,
+        device_id: '',
+        present: item.present,
+        late: item.late,
+        absent: item.absent,
+        total: item.total
+      }))
       dataReady.value = true
     } else {
       stats.value = { present: 0, late: 0, absent: 0, leave: 0 }
@@ -89,7 +117,7 @@ onMounted(fetchHistory)
       <div class="stats-grid" style="margin-bottom: 20px">
         <div class="stat-card">
           <div class="value">{{ summary.totalDays }}</div>
-          <div class="label">统计月份</div>
+          <div class="label">统计天数</div>
         </div>
         <div class="stat-card">
           <div class="value" style="color: #52c41a">{{ summary.avgRate.toFixed(1) }}%</div>
@@ -106,28 +134,24 @@ onMounted(fetchHistory)
       </div>
 
       <div class="card">
-        <div class="card-header">📋 考勤记录明细</div>
+        <div class="card-header">📋 每日考勤统计</div>
         <table v-if="records.length > 0">
           <thead>
             <tr>
               <th>日期</th>
-              <th>学生ID（匿名）</th>
-              <th>状态</th>
-              <th>时间</th>
-              <th>设备ID</th>
+              <th>出勤</th>
+              <th>迟到</th>
+              <th>缺勤</th>
+              <th>总人数</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="r in records" :key="r.id">
-              <td>{{ r.time?.split('T')[0] || '--' }}</td>
-              <td>{{ r.anonymous_id || '--' }}</td>
-              <td>
-                <span :class="'tag tag-' + (r.status === 'present' ? 'green' : r.status === 'late' ? 'orange' : r.status === 'absent' ? 'red' : 'blue')">
-                  {{ r.status === 'present' ? '出勤' : r.status === 'late' ? '迟到' : r.status === 'absent' ? '缺勤' : '请假' }}
-                </span>
-              </td>
-              <td>{{ r.time?.split('T')[1]?.slice(0, 5) || '--' }}</td>
-              <td>{{ r.device_id || '--' }}</td>
+              <td>{{ r.time || '--' }}</td>
+              <td style="color: #52c41a">{{ r.present || 0 }}</td>
+              <td style="color: #faad14">{{ r.late || 0 }}</td>
+              <td style="color: #ff4d4f">{{ r.absent || 0 }}</td>
+              <td>{{ r.total || 0 }}</td>
             </tr>
           </tbody>
         </table>
@@ -186,32 +210,6 @@ th {
   background: #fafafa;
   font-weight: 600;
   color: #333;
-}
-.tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-.tag-green {
-  background: #f6ffed;
-  color: #52c41a;
-  border: 1px solid #b7eb8f;
-}
-.tag-orange {
-  background: #fff7e6;
-  color: #faad14;
-  border: 1px solid #ffd591;
-}
-.tag-red {
-  background: #fff2f0;
-  color: #ff4d4f;
-  border: 1px solid #ffccc7;
-}
-.tag-blue {
-  background: #e6f7ff;
-  color: #1890ff;
-  border: 1px solid #91d5ff;
 }
 .btn {
   padding: 8px 16px;

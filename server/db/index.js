@@ -1,6 +1,6 @@
 /**
  * 数据库操作模块（精简版 - 考勤存证核心）
- * 包含用户表、考勤记录表、存证历史表
+ * 包含用户表、考勤记录表、存证历史表、匿名映射表、设备表
  */
 
 import path from 'path';
@@ -28,6 +28,7 @@ export const getDb = () => {
 };
 
 const initDatabase = (db) => {
+    // 用户表
     db.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +39,7 @@ const initDatabase = (db) => {
         )
     `);
 
+    // 考勤记录表
     db.exec(`
         CREATE TABLE IF NOT EXISTS attendance_records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,6 +47,7 @@ const initDatabase = (db) => {
             status TEXT NOT NULL,
             time DATETIME NOT NULL,
             classroom_id TEXT NOT NULL,
+            device_id TEXT,
             merkle_root TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
@@ -53,6 +56,7 @@ const initDatabase = (db) => {
         CREATE INDEX IF NOT EXISTS idx_attendance_time ON attendance_records(time);
     `);
 
+    // 存证历史表
     db.exec(`
         CREATE TABLE IF NOT EXISTS attendance_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +67,43 @@ const initDatabase = (db) => {
         CREATE INDEX IF NOT EXISTS idx_history_root ON attendance_history(merkle_root);
     `);
 
-    // 种子用户
+    // 匿名映射表（将匿名ID映射到真实姓名、班级等）
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS anonymous_map (
+            anonymous_id TEXT PRIMARY KEY,
+            student_name TEXT NOT NULL,
+            grade TEXT,
+            class_name TEXT,
+            parent_phone TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
+    // 家长-孩子绑定表（用于家长端查询）
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS parent_child (
+            parent_username TEXT NOT NULL,
+            child_anonymous_id TEXT NOT NULL,
+            FOREIGN KEY (parent_username) REFERENCES users(username),
+            FOREIGN KEY (child_anonymous_id) REFERENCES anonymous_map(anonymous_id),
+            PRIMARY KEY (parent_username, child_anonymous_id)
+        );
+    `);
+
+    // 设备表（用于管理员设备管理）
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS devices (
+            device_id TEXT PRIMARY KEY,
+            device_name TEXT NOT NULL,
+            classroom_id TEXT,
+            status TEXT DEFAULT 'offline',
+            ip_address TEXT,
+            last_heartbeat DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+
+    // 插入种子用户
     const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
     if (!stmt.get('admin')) {
         const hash = bcrypt.hashSync('password123', 10);
@@ -80,6 +120,24 @@ const initDatabase = (db) => {
         db.prepare('INSERT INTO users (username, passwordHash, role) VALUES (?, ?, ?)')
             .run('parent', hash, 'parent');
     }
+
+    // 插入默认匿名映射数据（示例）
+    const mapStmt = db.prepare('INSERT OR IGNORE INTO anonymous_map (anonymous_id, student_name, grade, class_name, parent_phone) VALUES (?, ?, ?, ?, ?)');
+    const defaultMappings = [
+        ['S001', '张三', '一年级', '一年级1班', '13800138001'],
+        ['S002', '李四', '一年级', '一年级1班', '13800138002'],
+        ['S003', '王五', '一年级', '一年级1班', '13800138003'],
+        ['S004', '赵六', '一年级', '一年级1班', '13800138004'],
+        ['S005', '孙七', '一年级', '一年级2班', '13800138005'],
+    ];
+    const insertMany = db.transaction((mappings) => {
+        for (const m of mappings) mapStmt.run(...m);
+    });
+    insertMany(defaultMappings);
+
+    // 绑定家长与孩子（示例：家长 parent 绑定 S001）
+    const bindStmt = db.prepare('INSERT OR IGNORE INTO parent_child (parent_username, child_anonymous_id) VALUES (?, ?)');
+    bindStmt.run('parent', 'S001');
 };
 
 // ========== 用户相关 ==========
@@ -121,9 +179,9 @@ export const deleteUser = (id) => {
 // ========== 考勤记录 ==========
 export const addAttendanceRecord = (record) => {
     return getDb().prepare(`
-        INSERT INTO attendance_records (anonymous_id, status, time, classroom_id, merkle_root)
-        VALUES (?, ?, ?, ?, ?)
-    `).run(record.anonymous_id, record.status, record.time, record.classroom_id, record.merkle_root || null);
+        INSERT INTO attendance_records (anonymous_id, status, time, classroom_id, device_id, merkle_root)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `).run(record.anonymous_id, record.status, record.time, record.classroom_id, record.device_id || 'yolo-edge-device', record.merkle_root || null);
 };
 
 export const getAttendanceByClassroom = (classroomId, date = null) => {
@@ -193,6 +251,33 @@ export const getHistoryByMerkleRoot = (merkleRoot) => {
 export const getActiveAttendanceRecords = getAttendanceHistory;
 export const getAttendanceRecord = getHistoryByMerkleRoot;
 
+// ========== 映射表相关 ==========
+export const getAllMappings = () => {
+    return getDb().prepare('SELECT * FROM anonymous_map ORDER BY anonymous_id').all();
+};
+
+export const addMapping = (mapping) => {
+    return getDb().prepare(`
+        INSERT INTO anonymous_map (anonymous_id, student_name, grade, class_name, parent_phone)
+        VALUES (?, ?, ?, ?, ?)
+    `).run(mapping.anonymous_id, mapping.student_name, mapping.grade, mapping.class_name, mapping.parent_phone);
+};
+
+export const getChildrenByParent = (parentUsername) => {
+    return getDb().prepare(`
+        SELECT m.* FROM anonymous_map m
+        JOIN parent_child pc ON m.anonymous_id = pc.child_anonymous_id
+        WHERE pc.parent_username = ?
+    `).all(parentUsername);
+};
+
+// 根据家长手机号获取孩子列表（通过 parent_phone 匹配）
+export const getStudentsByParentPhone = (phone) => {
+    return getDb().prepare(`
+        SELECT * FROM anonymous_map WHERE parent_phone = ?
+    `).all(phone);
+};
+
 // ========== 辅助统计 ==========
 export const getTotalStudentCount = () => {
     const result = getDb().prepare(`SELECT COUNT(DISTINCT anonymous_id) as count FROM attendance_records`).get();
@@ -233,5 +318,9 @@ export default {
     getActiveAttendanceRecords,
     getAttendanceRecord,
     getTotalStudentCount,
-    getTodayStats
+    getTodayStats,
+    getAllMappings,
+    addMapping,
+    getChildrenByParent,
+    getStudentsByParentPhone,
 };

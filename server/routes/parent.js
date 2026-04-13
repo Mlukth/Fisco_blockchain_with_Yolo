@@ -6,11 +6,10 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-// 获取家长关联的学生
+// 获取家长关联的学生（方案A：通过 parent_child 表直接查询，不依赖 phone 字段）
 const getParentStudents = (req) => {
-    const user = db.getUserById(req.user.userId);
-    if (!user || !user.phone) return [];
-    return db.getStudentsByParentPhone(user.phone);
+    // 直接根据用户名从 parent_child 表获取绑定的孩子
+    return db.getChildrenByParent(req.user.username);
 };
 
 // ========== 孩子今日考勤 ==========
@@ -25,12 +24,12 @@ router.get('/attendance', (req, res) => {
         const results = [];
         for (const s of students) {
             const records = db.getAttendanceByAnonymousId(s.anonymous_id, 1);
-            const todayRecord = records.find(r => r.time.startsWith(today));
+            const todayRecord = records.find(r => r.time && r.time.startsWith(today));
             results.push({
                 anonymousId: s.anonymous_id,
                 name: s.student_name,
-                class: s.classroom_id,
-                attendance: todayRecord || { status: 'unknown', time: null }
+                class: s.class_name || s.classroom_id,
+                attendance: todayRecord ? { status: todayRecord.status, time: todayRecord.time } : { status: 'unknown', time: null }
             });
         }
         res.json({ success: true, data: results });
@@ -57,7 +56,7 @@ router.get('/history', (req, res) => {
         res.json({
             success: true,
             data: {
-                student: { name: valid.student_name, anonymousId, class: valid.classroom_id },
+                student: { name: valid.student_name, anonymousId, class: valid.class_name || valid.classroom_id },
                 month,
                 summary: stats,
                 records

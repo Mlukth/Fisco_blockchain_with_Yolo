@@ -13,13 +13,14 @@ export interface TeacherAttendanceRecord {
 }
 
 export interface ClassAttendanceData {
-  classId: string
+  classroom: string
   date: string
   stats: {
     present: number
     late: number
     absent: number
     leave: number
+    total: number
   }
   records: TeacherAttendanceRecord[]
 }
@@ -27,33 +28,37 @@ export interface ClassAttendanceData {
 export interface TeacherHistoryResponse {
   success: boolean
   data: {
-    classId: string
-    month: string
-    stats: {
+    summary: {
+      totalDays: number
+      avgRate: number
+      lateCount: number
+      absentCount: number
+    }
+    history: Array<{
+      date: string
       present: number
       late: number
       absent: number
       leave: number
-    }
-    records: TeacherAttendanceRecord[]
+      total: number
+    }>
   }
 }
 
 export const teacherApi = {
-  // 获取今日班级考勤（使用班级ID，此处班级ID固定为"一年级1班"，与后端路由 /class/:classId 匹配）
-  getClassAttendance: (classId: string = '一年级1班'): Promise<{ success: boolean; data: ClassAttendanceData }> => {
-    return api.get(`/teacher/class/${encodeURIComponent(classId)}`)
+  // 获取今日班级考勤（后端接口为 /teacher/class/attendance，无需参数）
+  getClassAttendance: (): Promise<{ success: boolean; data: ClassAttendanceData }> => {
+    return api.get('/teacher/class/attendance')
   },
 
-  // 获取历史统计（按月查询）
-  getHistory: (classId: string, month: string): Promise<TeacherHistoryResponse> => {
-    return api.get(`/teacher/history/${encodeURIComponent(classId)}`, { params: { month } })
+  // 获取历史统计（支持日期范围）
+  getHistory: (start?: string, end?: string): Promise<TeacherHistoryResponse> => {
+    return api.get('/teacher/class/history', { params: { start, end } })
   },
 
   // 获取异常复核列表
-  getExceptions: (classId?: string): Promise<{ success: boolean; data: TeacherAttendanceRecord[] }> => {
-    // 后端暂无异常复核接口，此处暂时返回空数组或可保留以供后续扩展
-    return api.get('/teacher/exceptions', { params: { classId } })
+  getExceptions: (): Promise<{ success: boolean; data: TeacherAttendanceRecord[] }> => {
+    return api.get('/teacher/exceptions')
   },
 
   // 提交复核
