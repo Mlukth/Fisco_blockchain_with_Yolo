@@ -14,8 +14,13 @@ const __dirname = path.dirname(__filename);
 const dbPath = path.join(__dirname, '../data/users.db');
 const db = new Database(dbPath);
 
-// 确保 verified 字段存在（首次运行时添加）
-db.exec(`ALTER TABLE attendance_records ADD COLUMN verified INTEGER DEFAULT 1`);
+// 确保 verified 字段存在（安全添加，避免重复列错误）
+const tableInfo = db.prepare(`PRAGMA table_info(attendance_records)`).all();
+const hasVerifiedColumn = tableInfo.some(col => col.name === 'verified');
+if (!hasVerifiedColumn) {
+    db.exec(`ALTER TABLE attendance_records ADD COLUMN verified INTEGER DEFAULT 1`);
+    console.log('[验证任务] 已添加 verified 字段');
+}
 
 /**
  * 根据一组考勤记录重新计算 Merkle 根
