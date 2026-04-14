@@ -10,13 +10,13 @@ export default defineConfig({
     }
   },
   server: {
-    host: '0.0.0.0',        // 允许外部访问
+    host: '0.0.0.0',        // 监听所有网卡，确保外部可访问
     port: 8000,
+    strictPort: true,        // 端口被占用时直接报错，避免自动切换端口导致 grep 失败
     proxy: {
       '/api': {
-        target: 'http://192.168.171.157:3002',  // 后端实际地址
-        changeOrigin: true,
-        // 如果后端没有 /api 前缀，需要 rewrite，但我们的后端有，所以不需要 rewrite
+        target: 'http://192.168.171.157:3002',
+        changeOrigin: true
       }
     }
   }
