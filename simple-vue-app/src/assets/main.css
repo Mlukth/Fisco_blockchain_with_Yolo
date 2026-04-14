@@ -1,0 +1,46 @@
+/* 基础样式 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+}
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: #409eff;
+  color: white;
+}
+.btn-primary:hover {
+  background: #66b1ff;
+}
+.btn-warning {
+  background: #e6a23c;
+  color: white;
+}
+.alert-banner {
+  background: #fdf6ec;
+  border-left: 4px solid #e6a23c;
+  padding: 12px 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  color: #8a6d3b;
+}
+.text-danger {
+  color: #f56c6c;
+}
+.icon-warning {
+  margin-right: 4px;
+}

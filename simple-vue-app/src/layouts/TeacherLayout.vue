@@ -1,37 +1,20 @@
-<script setup lang="ts">
-import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
-
-const auth = useAuthStore()
-const router = useRouter()
-
-const menu = [
-  { path: '/teacher/class', name: '班级考勤', icon: '📅' },
-  { path: '/teacher/history', name: '历史统计', icon: '📊' },
-  { path: '/teacher/review', name: '异常复核', icon: '⚠️' },
-]
-</script>
-
 <template>
   <div class="layout">
-    <aside class="sidebar" style="background: #1890ff">
-      <div class="sidebar-header">👨‍🏫 教师端</div>
+    <aside class="sidebar">
+      <h3>教师端</h3>
       <nav>
-        <router-link v-for="m in menu" :key="m.path" :to="m.path" v-slot="{ isActive }">
-          <div :class="{ active: isActive }">{{ m.icon }} {{ m.name }}</div>
-        </router-link>
+        <router-link to="/teacher/attendance">今日考勤</router-link>
+        <router-link to="/teacher/history">历史统计</router-link>
+        <router-link to="/teacher/exceptions">异常复核</router-link>
       </nav>
+      <button @click="logout">退出</button>
     </aside>
-    <div class="main">
-      <header class="header">
-        <span>智慧课堂考勤系统</span>
-        <div>
-          <span style="margin-right: 12px">{{ auth.user?.name }}</span>
-          <span class="tag tag-green">教师</span>
-          <button class="btn btn-default" style="margin-left: 12px" @click="auth.logout(); router.push('/login')">退出</button>
-        </div>
-      </header>
-      <main class="content"><router-view /></main>
-    </div>
+    <main><router-view /></main>
   </div>
 </template>
+
+<script setup>
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+const logout = () => authStore.logout()
+</script>

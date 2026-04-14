@@ -1,0 +1,2 @@
+# 此目录用于存放 FaceNet 生成的 student_mapping.csv 文件
+# 导入脚本会自动读取本目录下的 student_mapping.csv

@@ -1,0 +1,17 @@
+// 以下代码需要集成到 server/index.js 中，此处提供修改片段
+
+// 在文件顶部导入部分增加：
+// import verificationScheduler from './utils/verificationScheduler.js';
+// import adminVerifyRoutes from './routes/admin-verify.js';
+
+// 在中间件注册部分增加：
+// verificationScheduler.startScheduledVerification();
+
+// 在路由注册部分增加：
+// app.use('/api/admin', adminVerifyRoutes);  // 注意：admin.js 已占用 /api/admin，此处需合并或调整挂载点
+
+// 建议将 admin-verify 挂载在 /api/admin 下，但需确保不与 admin.js 冲突。
+// 简单方案：修改为 app.use('/api/admin/verify', adminVerifyRoutes); 
+// 并在 admin-verify.js 中将路由改为 router.post('/', adminOnly, ...)
+
+// 实际应用时请根据现有 index.js 调整。
