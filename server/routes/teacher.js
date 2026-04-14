@@ -24,13 +24,71 @@ const teacherOnly = (req, res, next) => {
 router.use(teacherOnly);
 
 /**
+ * GET /teacher/dashboard-summary - 首页摘要卡片（新增聚合接口）
+ */
+router.get('/dashboard-summary', (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 今日统计
+    const todayStats = dbase.prepare(`
+      SELECT 
+        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
+        SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late,
+        SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
+        SUM(CASE WHEN status = 'leave' THEN 1 ELSE 0 END) as leave,
+        COUNT(*) as total
+      FROM attendance_records
+      WHERE DATE(time) = ?
+    `).get(today);
+    
+    // 待处理异常数
+    const pendingCount = dbase.prepare(`
+      SELECT COUNT(*) as count FROM attendance_records
+      WHERE status IN ('late', 'absent')
+    `).get().count;
+    
+    // 上周平均出勤率
+    const lastWeekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const lastWeekStats = dbase.prepare(`
+      SELECT 
+        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
+        COUNT(*) as total
+      FROM attendance_records
+      WHERE DATE(time) >= ? AND DATE(time) <= ?
+    `).get(lastWeekStart, today);
+    
+    const lastWeekRate = lastWeekStats.total > 0 
+      ? ((lastWeekStats.present / lastWeekStats.total) * 100).toFixed(1) 
+      : '0.0';
+    
+    res.json({
+      success: true,
+      data: {
+        today: {
+          present: todayStats.present || 0,
+          late: todayStats.late || 0,
+          absent: todayStats.absent || 0,
+          leave: todayStats.leave || 0,
+          total: todayStats.total || 0,
+          rate: todayStats.total > 0 ? ((todayStats.present / todayStats.total) * 100).toFixed(1) : '0.0'
+        },
+        pendingExceptions: pendingCount,
+        lastWeekRate: parseFloat(lastWeekRate)
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+/**
  * GET /teacher/class/attendance - 今日班级考勤
  */
 router.get('/class/attendance', (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    // 联表查询，带上学生姓名
     const records = dbase.prepare(`
       SELECT a.*, m.student_name, m.class_name
       FROM attendance_records a
@@ -40,9 +98,7 @@ router.get('/class/attendance', (req, res) => {
     `).all(today);
     
     const stats = { present: 0, late: 0, absent: 0, leave: 0, total: records.length };
-    records.forEach(r => {
-      if (stats.hasOwnProperty(r.status)) stats[r.status]++;
-    });
+    records.forEach(r => { if (stats.hasOwnProperty(r.status)) stats[r.status]++; });
     
     res.json({
       success: true,
@@ -76,7 +132,6 @@ router.get('/class/history', (req, res) => {
     const startDate = start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const endDate = end || new Date().toISOString().slice(0, 10);
     
-    // 按日期分组统计
     const dailyStats = dbase.prepare(`
       SELECT 
         DATE(time) as date,
@@ -91,8 +146,6 @@ router.get('/class/history', (req, res) => {
       ORDER BY date DESC
     `).all(startDate, endDate);
     
-    // 计算汇总
-    let totalDays = dailyStats.length;
     let totalPresent = 0, totalLate = 0, totalAbsent = 0, totalAll = 0;
     dailyStats.forEach(d => {
       totalPresent += d.present;
@@ -107,19 +160,12 @@ router.get('/class/history', (req, res) => {
       success: true,
       data: {
         summary: {
-          totalDays,
+          totalDays: dailyStats.length,
           avgRate: parseFloat(avgRate.toFixed(1)),
           lateCount: totalLate,
           absentCount: totalAbsent
         },
-        history: dailyStats.map(d => ({
-          date: d.date,
-          present: d.present,
-          late: d.late,
-          absent: d.absent,
-          leave: d.leave,
-          total: d.total
-        }))
+        history: dailyStats
       }
     });
   } catch (e) {
@@ -160,12 +206,12 @@ router.get('/exceptions', (req, res) => {
 });
 
 /**
- * POST /teacher/review - 提交复核
+ * POST /teacher/review - 提交复核（当前仅模拟，未来扩展）
  */
 router.post('/review', (req, res) => {
   try {
     const { recordId, isReviewed, note } = req.body;
-    // 简化处理，实际应该更新数据库
+    // 暂不更新数据库，返回成功以兼容前端
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });

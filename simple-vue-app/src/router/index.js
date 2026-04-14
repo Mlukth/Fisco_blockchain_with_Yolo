@@ -14,7 +14,8 @@ const routes = [
       { path: '', redirect: '/admin/dashboard' },
       { path: 'dashboard', component: () => import('@/views/admin/Dashboard.vue') },
       { path: 'devices', component: () => import('@/views/admin/Devices.vue') },
-      { path: 'users', component: () => import('@/views/admin/Users.vue') }
+      { path: 'users', component: () => import('@/views/admin/Users.vue') },
+      { path: 'mapping', component: () => import('@/views/admin/Mapping.vue') }  // 新增
     ]
   },
   {

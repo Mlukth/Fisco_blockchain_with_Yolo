@@ -22,6 +22,33 @@ const adminOnly = (req, res, next) => {
 router.use(authenticateToken);
 router.use(adminOnly);
 
+// ========== 聚合告警摘要接口 ==========
+router.get('/alert-summary', (req, res) => {
+  try {
+    const attendanceAlerts = dbase.prepare(`
+      SELECT COUNT(*) as count FROM attendance_records WHERE status IN ('late', 'absent')
+    `).get().count;
+    
+    let deviceAlerts = 0;
+    try {
+      deviceAlerts = dbase.prepare("SELECT COUNT(*) as count FROM devices WHERE status = 'offline'").get().count;
+    } catch (e) {}
+    
+    let consistencyWarning = false;
+    try {
+      const bad = dbase.prepare('SELECT COUNT(*) as count FROM attendance_records WHERE verified = 0').get();
+      consistencyWarning = bad.count > 0;
+    } catch (e) {}
+    
+    res.json({
+      success: true,
+      data: { attendanceAlerts, deviceAlerts, consistencyWarning }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ========== 统计仪表盘 ==========
 router.get('/stats', (req, res) => {
   try {
@@ -39,9 +66,7 @@ router.get('/stats', (req, res) => {
     try {
       devices = dbase.prepare('SELECT * FROM devices').all();
       onlineDevices = devices.filter(d => d.status === 'online').length;
-    } catch (e) {
-      console.warn('设备表不存在，跳过设备统计');
-    }
+    } catch (e) {}
     
     let dataConsistencyWarning = false;
     try {
@@ -219,6 +244,53 @@ router.post('/verify-all', async (req, res) => {
   } catch (error) {
     console.error('手动验真失败:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== 家长绑定管理 ==========
+router.get('/parent-bindings/:username', (req, res) => {
+  try {
+    const { username } = req.params;
+    const children = dbase.prepare(`
+      SELECT m.* FROM anonymous_map m
+      JOIN parent_child pc ON m.anonymous_id = pc.child_anonymous_id
+      WHERE pc.parent_username = ?
+    `).all(username);
+    res.json({ success: true, data: children });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.post('/parent-bindings', (req, res) => {
+  try {
+    const { parent_username, child_anonymous_id } = req.body;
+    if (!parent_username || !child_anonymous_id) {
+      return res.status(400).json({ success: false, error: '缺少必要参数' });
+    }
+    const child = dbase.prepare('SELECT * FROM anonymous_map WHERE anonymous_id = ?').get(child_anonymous_id);
+    if (!child) {
+      return res.status(400).json({ success: false, error: '匿名ID不存在' });
+    }
+    dbase.prepare(`
+      INSERT OR IGNORE INTO parent_child (parent_username, child_anonymous_id)
+      VALUES (?, ?)
+    `).run(parent_username, child_anonymous_id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+router.delete('/parent-bindings', (req, res) => {
+  try {
+    const { parent_username, child_anonymous_id } = req.body;
+    dbase.prepare(`
+      DELETE FROM parent_child WHERE parent_username = ? AND child_anonymous_id = ?
+    `).run(parent_username, child_anonymous_id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

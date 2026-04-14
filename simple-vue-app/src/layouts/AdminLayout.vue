@@ -6,19 +6,28 @@
         <router-link to="/admin/dashboard">仪表盘</router-link>
         <router-link to="/admin/devices">设备管理</router-link>
         <router-link to="/admin/users">用户管理</router-link>
+        <router-link to="/admin/mapping">匿名映射</router-link>
       </nav>
       <button @click="logout" class="logout-btn">退出</button>
     </aside>
     <main class="content">
+      <div class="greeting">👋 管理员，{{ greetingTime }}好</div>
       <router-view />
     </main>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 const logout = () => authStore.logout()
+const greetingTime = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return '上午'
+  if (hour < 18) return '下午'
+  return '晚上'
+})
 </script>
 
 <style scoped>
@@ -29,4 +38,5 @@ const logout = () => authStore.logout()
 .sidebar a.router-link-active { color: #42b983; }
 .logout-btn { margin-top: 40px; background: none; border: 1px solid #bfcbd9; color: #bfcbd9; padding: 8px; width: 100%; border-radius: 4px; cursor: pointer; }
 .content { flex: 1; padding: 24px; background: #f0f2f5; }
+.greeting { font-size: 20px; margin-bottom: 20px; color: #303133; }
 </style>
