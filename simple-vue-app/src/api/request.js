@@ -1,11 +1,11 @@
 import axios from 'axios'
 
+// 注意：使用相对路径 '/api'，让 Vite 代理转发到后端
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://192.168.171.157:3002/api',
+  baseURL: '/api',   // 开发环境通过代理，生产环境可配合 nginx
   timeout: 10000
 })
 
-// 请求拦截器
 service.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token')
@@ -17,7 +17,6 @@ service.interceptors.request.use(
   error => Promise.reject(error)
 )
 
-// 响应拦截器
 service.interceptors.response.use(
   response => {
     const res = response.data
@@ -29,6 +28,7 @@ service.interceptors.response.use(
   error => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
       window.location.href = '/login'
     }
     return Promise.reject(error)

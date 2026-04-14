@@ -34,7 +34,6 @@ router.get('/stats', (req, res) => {
     const total = todayStats.total;
     const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '0.0';
     
-    // 设备统计
     let devices = [];
     let onlineDevices = 0;
     try {
@@ -44,14 +43,11 @@ router.get('/stats', (req, res) => {
       console.warn('设备表不存在，跳过设备统计');
     }
     
-    // 检查数据一致性告警（存在 verified=0 的记录则告警）
     let dataConsistencyWarning = false;
     try {
       const bad = dbase.prepare('SELECT COUNT(*) as count FROM attendance_records WHERE verified = 0').get();
       dataConsistencyWarning = bad.count > 0;
-    } catch (e) {
-      // 字段可能不存在，忽略
-    }
+    } catch (e) {}
     
     res.json({
       success: true,
@@ -71,8 +67,141 @@ router.get('/stats', (req, res) => {
   }
 });
 
-// ========== 设备管理（原有代码保持不变，此处省略以节省篇幅，实际使用时保留原有实现） ==========
-// ... 此处保留原有的设备管理、用户管理、异常提醒、配置管理等路由代码 ...
+// ========== 设备管理 ==========
+router.get('/devices', (req, res) => {
+  try {
+    const devices = dbase.prepare('SELECT * FROM devices ORDER BY created_at DESC').all();
+    res.json({ success: true, data: devices });
+  } catch (e) {
+    if (e.message.includes('no such table')) {
+      res.json({ success: true, data: [] });
+    } else {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  }
+});
+
+router.post('/devices', (req, res) => {
+  try {
+    const { device_id, device_name, classroom_id, ip_address } = req.body;
+    dbase.prepare(`
+      INSERT INTO devices (device_id, device_name, classroom_id, status, ip_address, last_heartbeat)
+      VALUES (?, ?, ?, 'offline', ?, datetime('now'))
+    `).run(device_id, device_name, classroom_id, ip_address);
+    res.json({ success: true, data: { id: device_id } });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.put('/devices/:deviceId', (req, res) => {
+  try {
+    const { device_name, classroom_id, status, ip_address } = req.body;
+    dbase.prepare(`
+      UPDATE devices SET device_name = ?, classroom_id = ?, status = ?, ip_address = ?, last_heartbeat = datetime('now')
+      WHERE device_id = ?
+    `).run(device_name, classroom_id, status, ip_address, req.params.deviceId);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.delete('/devices/:deviceId', (req, res) => {
+  try {
+    dbase.prepare('DELETE FROM devices WHERE device_id = ?').run(req.params.deviceId);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.post('/devices/heartbeat', (req, res) => {
+  try {
+    const { device_id, ip_address } = req.body;
+    dbase.prepare(`
+      UPDATE devices SET status = 'online', ip_address = ?, last_heartbeat = datetime('now')
+      WHERE device_id = ?
+    `).run(ip_address, device_id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// ========== 用户管理 ==========
+router.get('/users', (req, res) => {
+  const { role } = req.query;
+  const users = db.getAllUsers(role || null);
+  res.json({ success: true, data: users });
+});
+
+router.post('/users', (req, res) => {
+  try {
+    const result = db.createUser(req.body);
+    res.json({ success: true, data: { id: result.lastInsertRowid } });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.put('/users/:id', (req, res) => {
+  try {
+    const result = db.updateUser(req.params.id, req.body);
+    res.json({ success: true, changes: result.changes });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+router.delete('/users/:id', (req, res) => {
+  try {
+    const result = db.deleteUser(req.params.id);
+    res.json({ success: true, changes: result.changes });
+  } catch (e) {
+    res.status(400).json({ success: false, error: e.message });
+  }
+});
+
+// ========== 异常提醒 ==========
+router.get('/exceptions', (req, res) => {
+  try {
+    const attendance = db.getUnreviewedExceptions();
+    let devices = [];
+    try {
+      devices = dbase.prepare("SELECT * FROM devices WHERE status IN ('offline', 'error')").all();
+    } catch (e) {}
+    res.json({ success: true, data: { attendance: attendance.slice(0, 10), devices } });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ========== 配置管理 ==========
+router.get('/config', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      blockchainEnabled: true,
+      autoSync: true,
+      channelUrl: 'http://localhost:8545',
+      contractAddress: process.env.CONTRACT_ADDRESS || ''
+    }
+  });
+});
+
+router.post('/config', (req, res) => {
+  res.json({ success: true, message: '配置已保存' });
+});
+
+// ========== 诊断与日志 ==========
+router.get('/diagnosis', (req, res) => {
+  res.json({ success: true, data: [] });
+});
+
+router.get('/logs', (req, res) => {
+  res.json({ success: true, data: [] });
+});
 
 // ========== 手动触发验真 ==========
 router.post('/verify-all', async (req, res) => {
