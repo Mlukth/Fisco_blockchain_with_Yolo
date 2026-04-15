@@ -17,7 +17,8 @@
     "jsonwebtoken": "^9.0.2",
     "merkletreejs": "^0.3.11",
     "node-cron": "^3.0.3",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "web3": "^4.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

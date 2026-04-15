@@ -3,23 +3,10 @@
 > vite --port 8000 --host
 
 
-  VITE v5.4.21  ready in 631 ms
+  VITE v5.4.21  ready in 810 ms
 
   ➜  Local:   http://localhost:8000/
   ➜  Network: http://192.168.171.157:8000/
-8:44:36 AM [vite] hmr update /src/layouts/AdminLayout.vue, /src/layouts/AdminLayout.vue?vue&type=style&index=0&scoped=e5e83559&lang.css
-8:44:36 AM [vite] hmr update /src/layouts/ParentLayout.vue, /src/layouts/ParentLayout.vue?vue&type=style&index=0&scoped=72094fb9&lang.css
-8:46:40 AM [vite] hmr update /src/views/admin/Dashboard.vue, /src/views/admin/Dashboard.vue?vue&type=style&index=0&scoped=0de618a8&lang.css
-8:54:21 AM [vite] hmr update /src/views/admin/Devices.vue?vue&type=style&index=0&scoped=1e103881&lang.css, /src/views/admin/Devices.vue
-8:59:12 AM [vite] hmr update /src/views/admin/Users.vue
-9:02:55 AM [vite] hmr update /src/views/teacher/Attendance.vue, /src/views/teacher/Attendance.vue?vue&type=style&index=0&scoped=e00c4226&lang.css
-9:12:06 AM [vite] hmr update /src/views/teacher/History.vue, /src/views/teacher/History.vue?vue&type=style&index=0&scoped=63b8a228&lang.css
-9:12:06 AM [vite] hmr update /src/views/teacher/Exceptions.vue?vue&type=style&index=0&scoped=6dbb03b8&lang.css, /src/views/teacher/Exceptions.vue
-9:26:34 AM [vite] hmr update /src/views/parent/Attendance.vue?vue&type=style&index=0&scoped=ab30c628&lang.css, /src/views/parent/Attendance.vue
-9:29:18 AM [vite] hmr update /src/views/parent/History.vue?vue&type=style&index=0&scoped=30576c58&lang.css, /src/views/parent/History.vue
-9:49:29 AM [vite] hmr update /src/layouts/AdminLayout.vue?vue&type=style&index=0&scoped=e5e83559&lang.css, /src/layouts/AdminLayout.vue
-11:41:16 AM [vite] hmr update /src/views/Login.vue?vue&type=style&index=0&scoped=08aaad4e&lang.css, /src/views/Login.vue
-12:08:29 PM [vite] hmr update /src/views/Login.vue, /src/views/Login.vue?vue&type=style&index=0&scoped=08aaad4e&lang.css
-12:08:29 PM [vite] hmr update /src/layouts/TeacherLayout.vue?vue&type=style&index=0&scoped=e53f196f&lang.css, /src/layouts/TeacherLayout.vue
-12:08:29 PM [vite] hmr update /src/layouts/AdminLayout.vue?vue&type=style&index=0&scoped=e5e83559&lang.css, /src/layouts/AdminLayout.vue
-12:08:29 PM [vite] hmr update /src/layouts/ParentLayout.vue?vue&type=style&index=0&scoped=72094fb9&lang.css, /src/layouts/ParentLayout.vue
+6:14:50 AM [vite] http proxy error: /api/auth/login
+Error: connect ECONNREFUSED 192.168.171.157:3002
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)

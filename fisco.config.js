@@ -20,7 +20,7 @@ export default {
   chainId: process.env.FISCO_CHAIN_ID || 'chain0',
 
   // 合约地址（部署后自动更新）
-  contractAddress: process.env.CONTRACT_ADDRESS || '',
+  contractAddress: '0xd24180cc0feF2f3E545de4F9AAFc09345cD08903',
 
   // SSL 证书路径 - 指向 FISCO 节点的证书目录
   ssl: {

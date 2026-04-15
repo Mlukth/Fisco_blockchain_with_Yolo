@@ -1,5 +1,5 @@
 /**
- * 考勤存证路由 - 修复版（含匿名映射管理）
+ * 考勤存证路由 - 真实上链版（Web3.js + RPC）
  * calculate-merkle-root 同时存储考勤记录
  */
 import express from 'express';
@@ -9,9 +9,15 @@ import { MerkleTree } from 'merkletreejs';
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Web3 } from 'web3';
+import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// 加载环境变量
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // 数据库连接
 const dbPath = path.join(__dirname, '../data/users.db');
@@ -21,6 +27,43 @@ const db = new Database(dbPath);
 const DEFAULT_CLASSROOM = '一年级1班';
 const DEFAULT_DEVICE = 'yolo-edge-device';
 
+// ========== 区块链初始化 ==========
+const RPC_URL = process.env.FISCO_RPC_URL || 'http://192.168.171.157:8545';
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const ADMIN_PRIVATE_KEY_HEX = process.env.ADMIN_PRIVATE_KEY_HEX;
+
+if (!CONTRACT_ADDRESS) {
+    console.error('❌ 环境变量 CONTRACT_ADDRESS 未设置');
+    process.exit(1);
+}
+if (!ADMIN_PRIVATE_KEY_HEX) {
+    console.error('❌ 环境变量 ADMIN_PRIVATE_KEY_HEX 未设置');
+    console.error('   请将十六进制私钥添加到 .env 文件中：ADMIN_PRIVATE_KEY_HEX=0x...');
+    process.exit(1);
+}
+
+// 加载合约 ABI（从 artifacts 读取，与测试脚本一致）
+const artifactPath = path.join(__dirname, '../../artifacts/AttendanceProof.json');
+const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+const CONTRACT_ABI = artifact.abi;
+
+// 初始化 Web3
+const web3 = new Web3(RPC_URL);
+
+// 直接使用十六进制私钥
+const account = web3.eth.accounts.privateKeyToAccount(ADMIN_PRIVATE_KEY_HEX);
+web3.eth.accounts.wallet.add(account);
+web3.eth.defaultAccount = account.address;
+
+// 合约实例
+const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+
+console.log('✅ 区块链模块初始化成功');
+console.log(`   RPC: ${RPC_URL}`);
+console.log(`   合约地址: ${CONTRACT_ADDRESS}`);
+console.log(`   账户: ${account.address}`);
+
+// ========== 辅助函数：生成默克尔根 ==========
 function generateMerkleRoot(records) {
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error('考勤记录数组不能为空');
@@ -42,8 +85,7 @@ function generateMerkleRoot(records) {
 
 const router = express.Router();
 
-// ========== 匿名映射管理 ==========
-// 获取所有映射
+// ========== 匿名映射管理（保持不变） ==========
 router.get('/mapping', authenticateToken, (req, res) => {
     try {
         const stmt = db.prepare('SELECT * FROM anonymous_map ORDER BY anonymous_id');
@@ -54,7 +96,6 @@ router.get('/mapping', authenticateToken, (req, res) => {
     }
 });
 
-// 新增映射
 router.post('/mapping', authenticateToken, (req, res) => {
     try {
         const { anonymous_id, student_name, grade, class_name, parent_phone } = req.body;
@@ -69,7 +110,6 @@ router.post('/mapping', authenticateToken, (req, res) => {
     }
 });
 
-// 更新映射
 router.put('/mapping/:anonymous_id', authenticateToken, (req, res) => {
     try {
         const { student_name, grade, class_name, parent_phone } = req.body;
@@ -84,7 +124,6 @@ router.put('/mapping/:anonymous_id', authenticateToken, (req, res) => {
     }
 });
 
-// 删除映射
 router.delete('/mapping/:anonymous_id', authenticateToken, (req, res) => {
     try {
         const stmt = db.prepare('DELETE FROM anonymous_map WHERE anonymous_id = ?');
@@ -95,14 +134,11 @@ router.delete('/mapping/:anonymous_id', authenticateToken, (req, res) => {
     }
 });
 
-// CSV导入（简化版，实际项目需解析CSV文件）
 router.post('/mapping/import', authenticateToken, (req, res) => {
-    // 简化处理：直接返回成功，表示接口存在
-    // 完整实现需要处理 multipart/form-data 并解析 CSV
     res.json({ success: true, imported: 0 });
 });
 
-// ========== 核心接口：计算默克尔根 + 存储考勤记录 ==========
+// ========== 核心接口：计算默克尔根 + 存储考勤记录（保持不变） ==========
 router.post('/calculate-merkle-root', authenticateToken, (req, res) => {
   try {
     const { records } = req.body;
@@ -111,10 +147,8 @@ router.post('/calculate-merkle-root', authenticateToken, (req, res) => {
       return res.status(400).json({ success: false, error: '请提供有效的考勤记录数组' });
     }
 
-    // 1. 计算默克尔根
     const merkleRoot = generateMerkleRoot(records);
 
-    // 2. 存储每条考勤记录到数据库（包含 device_id）
     const insertStmt = db.prepare(`
       INSERT INTO attendance_records (anonymous_id, status, time, classroom_id, device_id, merkle_root, created_at)
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
@@ -144,7 +178,7 @@ router.post('/calculate-merkle-root', authenticateToken, (req, res) => {
   }
 });
 
-// ========== 上传默克尔根到链上 ==========
+// ========== 上传默克尔根到链上（真实交易） ==========
 router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
   try {
     const { merkleRoot, attendanceDate } = req.body;
@@ -153,8 +187,32 @@ router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: '默克尔根格式错误' });
     }
 
-    const mockBlockHeight = Math.floor(Math.random() * 10000) + 1000;
-    const mockTxHash = '0x' + crypto.randomBytes(32).toString('hex');
+    // 计算时间戳（秒）
+    const timestamp = attendanceDate 
+      ? Math.floor(new Date(attendanceDate).getTime() / 1000)
+      : Math.floor(Date.now() / 1000);
+
+    console.log(`📤 发送上链交易: root=${merkleRoot}, timestamp=${timestamp}`);
+
+    // 调用合约方法
+    const receipt = await contract.methods.uploadMerkleRoot(merkleRoot, timestamp).send({
+      from: account.address,
+      gas: 300000,
+      gasPrice: 1
+    });
+
+    console.log(`✅ 上链成功，交易哈希: ${receipt.transactionHash}`);
+
+    // 可选：将交易记录存入 merkle_roots 表（如果表存在）
+    try {
+      const insertTxStmt = db.prepare(`
+        INSERT INTO merkle_roots (root_hash, record_count, tx_hash, block_number, uploaded_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+      `);
+      insertTxStmt.run(merkleRoot, 1, receipt.transactionHash, receipt.blockNumber);
+    } catch (dbError) {
+      console.warn('⚠️ 无法写入 merkle_roots 表（可能不存在）:', dbError.message);
+    }
 
     res.json({
       success: true,
@@ -162,8 +220,8 @@ router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
       data: {
         merkleRoot,
         attendanceDate,
-        blockHeight: mockBlockHeight,
-        transactionHash: mockTxHash
+        blockNumber: Number(receipt.blockNumber),
+        transactionHash: receipt.transactionHash
       }
     });
 
@@ -173,7 +231,7 @@ router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
   }
 });
 
-// ========== 验证默克尔根 ==========
+// ========== 验证默克尔根（保持不变） ==========
 router.post('/verify-merkle-root', authenticateToken, async (req, res) => {
   try {
     const { merkleRoot } = req.body;
@@ -198,7 +256,7 @@ router.post('/verify-merkle-root', authenticateToken, async (req, res) => {
   }
 });
 
-// ========== 批量验证 ==========
+// ========== 批量验证（保持不变） ==========
 router.post('/batch-verify', authenticateToken, async (req, res) => {
   try {
     const { merkleRootList } = req.body;
@@ -231,7 +289,7 @@ router.post('/batch-verify', authenticateToken, async (req, res) => {
   }
 });
 
-// ========== 考勤历史 ==========
+// ========== 考勤历史（保持不变） ==========
 router.get('/attendance-history', authenticateToken, async (req, res) => {
   try {
     const stmt = db.prepare('SELECT * FROM attendance_records WHERE merkle_root IS NOT NULL ORDER BY created_at DESC LIMIT 100');
@@ -256,7 +314,7 @@ router.get('/attendance-history', authenticateToken, async (req, res) => {
   }
 });
 
-// ========== 统计 ==========
+// ========== 统计（保持不变） ==========
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
     const totalStmt = db.prepare('SELECT COUNT(*) as count FROM attendance_records');
