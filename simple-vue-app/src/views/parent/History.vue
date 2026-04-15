@@ -47,14 +47,21 @@
         <div v-for="r in history.records" :key="r.time" class="record-card">
           <div class="record-time">
             <span class="time-icon">🕐</span>
-            <span class="time-text">{{ r.time }}</span>
+            <span class="time-text">{{ formatTime(r.time) }}</span>
           </div>
           <div class="record-status">
             <span class="status-badge" :class="r.status">
               {{ statusText(r.status) }}
             </span>
-            <span v-if="r.verifyFailed" class="verify-warning">
+            <!-- 区块链存证状态（修正严格相等判断） -->
+            <span v-if="r.verified == 1 || r.verified === true" class="chain-badge verified" title="该记录已上链存证，不可篡改">
+              🔒 链上已存证
+            </span>
+            <span v-else-if="r.merkle_root" class="chain-badge warning" title="本地默克尔根与链上不一致，可能被篡改">
               ⚠️ 存证异常
+            </span>
+            <span v-else class="chain-badge pending" title="该记录尚未进行链上存证">
+              ⏳ 待存证
             </span>
           </div>
           <button class="btn-feedback" @click="showFeedbackHint">
@@ -102,6 +109,19 @@ async function fetchHistory() {
 
 function statusText(s) {
   return { present: '出勤', late: '迟到', absent: '缺勤', leave: '请假' }[s] || s
+}
+
+function formatTime(time) {
+  if (!time) return '-'
+  // 格式化为本地日期时间字符串
+  const date = new Date(time)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 function showFeedbackHint() {
@@ -258,7 +278,7 @@ function showFeedbackHint() {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 180px;
+  min-width: 200px;
 }
 
 .time-icon {
@@ -278,7 +298,6 @@ function showFeedbackHint() {
 }
 
 .status-badge {
-  display: inline-block;
   display: inline-block;
   padding: 4px 12px;
   border-radius: 20px;
@@ -306,14 +325,30 @@ function showFeedbackHint() {
   color: #909399;
 }
 
-.verify-warning {
+/* 区块链存证标签样式 */
+.chain-badge {
   display: inline-block;
-  padding: 4px 10px;
-  background: #FFF2F0;
-  color: #F56C6C;
-  border-radius: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
+}
+.chain-badge.verified {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+.chain-badge.warning {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}
+.chain-badge.pending {
+  background: #f5f5f5;
+  color: #757575;
+  border: 1px solid #e0e0e0;
 }
 
 .btn-feedback {

@@ -4,52 +4,62 @@
       <h1 class="page-title">孩子今日考勤</h1>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <span>加载中...</span>
-    </div>
-
-    <div v-else-if="children.length === 0" class="empty-state">
+    <div v-if="children.length === 0" class="empty-state">
       <span class="empty-icon">👨‍👩‍👧</span>
-      <span class="empty-text">暂无绑定孩子信息</span>
-      <span class="empty-hint">请联系学校管理员进行绑定</span>
+      <span class="empty-text">暂无绑定孩子，请联系管理员</span>
     </div>
 
-    <div v-else class="children-list">
-      <div
-        v-for="child in children"
-        :key="child.anonymousId"
-        class="status-card"
-        :class="statusClass(child.attendance?.status)"
+    <div v-else class="cards-container">
+      <div 
+        v-for="child in children" 
+        :key="child.anonymousId" 
+        class="child-card"
+        :class="cardBorderClass(child.attendance?.status)"
       >
         <div class="card-header">
-          <div class="child-avatar">{{ child.name?.charAt(0) || '?' }}</div>
-          <div class="child-info">
-            <div class="child-name">{{ child.name }}</div>
-            <div class="child-class">{{ child.class }}</div>
+          <div class="avatar" :style="{ background: avatarColor(child.name) }">
+            {{ child.name.charAt(0) }}
+          </div>
+          <div class="info">
+            <div class="name">{{ child.name }}</div>
+            <div class="class">{{ child.class }}</div>
           </div>
         </div>
 
         <div class="card-body">
-          <div class="status-icon-large">
+          <div class="status-icon">
             <span v-if="child.attendance?.status === 'present'">✅</span>
             <span v-else-if="child.attendance?.status === 'late'">⏰</span>
             <span v-else-if="child.attendance?.status === 'absent'">❌</span>
+            <span v-else-if="child.attendance?.status === 'leave'">📝</span>
             <span v-else>❓</span>
           </div>
-          <div class="status-text" :class="statusClass(child.attendance?.status)">
+          <div class="status-text">
             {{ statusText(child.attendance?.status) }}
           </div>
-          <div class="status-time" v-if="child.attendance?.time">
-            打卡时间：{{ formatTime(child.attendance.time) }}
+          <div class="time" v-if="child.attendance?.time">
+            {{ formatTime(child.attendance.time) }}
           </div>
-          <div class="status-time" v-else>
+          <div class="time" v-else>
             暂无打卡记录
+          </div>
+          
+          <!-- 区块链存证标签 -->
+          <div class="chain-status">
+            <span v-if="child.attendance?.verified" class="chain-badge verified" title="该记录已上链存证">
+              🔒 已存证
+            </span>
+            <span v-else-if="child.attendance?.merkleRoot" class="chain-badge warning" title="存证异常，请关注">
+              ⚠️ 异常
+            </span>
+            <span v-else class="chain-badge pending" title="尚未进行链上存证">
+              ⏳ 待存证
+            </span>
           </div>
         </div>
 
         <div class="card-footer">
-          <router-link :to="`/parent/history?child=${child.anonymousId}`" class="view-history">
+          <router-link :to="{ path: '/parent/history', query: { child: child.anonymousId } }" class="history-link">
             查看本月记录 →
           </router-link>
         </div>
@@ -63,35 +73,40 @@ import { ref, onMounted } from 'vue'
 import { getAttendance } from '@/api/parent'
 
 const children = ref([])
-const loading = ref(true)
 
 onMounted(async () => {
-  try {
-    const res = await getAttendance()
-    children.value = res.data || []
-  } finally {
-    loading.value = false
-  }
+  const res = await getAttendance()
+  children.value = res.data
 })
 
-function statusClass(status) {
-  if (status === 'present') return 'present'
-  if (status === 'late') return 'late'
-  if (status === 'absent') return 'absent'
-  return 'unknown'
-}
-
 function statusText(status) {
-  const map = { present: '已到校', late: '迟到', absent: '缺勤', leave: '请假' }
-  return map[status] || '状态未知'
+  const map = { present: '出勤', late: '迟到', absent: '缺勤', leave: '请假', unknown: '未知' }
+  return map[status] || '未知'
 }
 
 function formatTime(time) {
-  return time ? new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''
+  if (!time) return ''
+  const date = new Date(time)
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function cardBorderClass(status) {
+  const map = { present: 'border-present', late: 'border-late', absent: 'border-absent', leave: 'border-leave' }
+  return map[status] || 'border-unknown'
+}
+
+function avatarColor(name) {
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
+  const index = name ? name.charCodeAt(0) % colors.length : 0
+  return colors[index]
 }
 </script>
 
 <style scoped>
+.attendance-page {
+  padding: 20px;
+}
+
 .page-header {
   margin-bottom: 24px;
 }
@@ -103,188 +118,161 @@ function formatTime(time) {
   margin: 0;
 }
 
-.loading-state,
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px;
+  padding: 60px;
+  gap: 16px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  gap: 16px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #E5E6EB;
-  border-top-color: #0066CC;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.loading-state span {
-  color: #86909C;
-  font-size: 14px;
 }
 
 .empty-icon {
-  font-size: 64px;
+  font-size: 48px;
 }
 
 .empty-text {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1D2129;
-}
-
-.empty-hint {
-  font-size: 14px;
+  font-size: 16px;
   color: #86909C;
 }
 
-.children-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
 }
 
-.status-card {
+.child-card {
   background: white;
   border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  width: 320px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  transition: all 0.3s;
+  transition: all 0.2s;
+  border-left: 6px solid #E5E6EB;
 }
 
-.status-card:hover {
+.child-card:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
-.status-card.present {
-  border-bottom: 6px solid #67C23A;
+.child-card.border-present {
+  border-left-color: #67C23A;
 }
-
-.status-card.late {
-  border-bottom: 6px solid #E6A23C;
+.child-card.border-late {
+  border-left-color: #E6A23C;
 }
-
-.status-card.absent {
-  border-bottom: 6px solid #F56C6C;
+.child-card.border-absent {
+  border-left-color: #F56C6C;
 }
-
-.status-card.unknown {
-  border-bottom: 6px solid #909399;
+.child-card.border-leave {
+  border-left-color: #909399;
+}
+.child-card.border-unknown {
+  border-left-color: #C0C4CC;
 }
 
 .card-header {
   display: flex;
   align-items: center;
+  padding: 20px 20px 16px;
   gap: 16px;
-  padding: 20px 24px;
-  border-bottom: 1px solid #F0F2F5;
 }
 
-.child-avatar {
+.avatar {
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 50%;
+  border-radius: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 500;
+  color: white;
 }
 
-.child-info {
+.info {
   flex: 1;
 }
 
-.child-name {
-  font-size: 20px;
-  font-weight: 700;
+.name {
+  font-size: 18px;
+  font-weight: 600;
   color: #1D2129;
+  margin-bottom: 4px;
 }
 
-.child-class {
+.class {
   font-size: 14px;
   color: #86909C;
-  margin-top: 2px;
 }
 
 .card-body {
-  padding: 32px 24px;
+  padding: 0 20px 20px;
   text-align: center;
 }
 
-.status-icon-large {
-  font-size: 80px;
-  margin-bottom: 16px;
-}
-
-.status-text {
-  font-size: 24px;
-  font-weight: 700;
+.status-icon {
+  font-size: 48px;
   margin-bottom: 8px;
 }
 
-.status-text.present {
-  color: #67C23A;
+.status-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1D2129;
+  margin-bottom: 4px;
 }
 
-.status-text.late {
-  color: #E6A23C;
-}
-
-.status-text.absent {
-  color: #F56C6C;
-}
-
-.status-text.unknown {
-  color: #909399;
-}
-
-.status-time {
+.time {
   font-size: 14px;
-  color: #606266;
+  color: #86909C;
+  margin-bottom: 12px;
+}
+
+.chain-status {
+  margin-top: 8px;
+}
+
+.chain-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.chain-badge.verified {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+.chain-badge.warning {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}
+.chain-badge.pending {
+  background: #f5f5f5;
+  color: #757575;
+  border: 1px solid #e0e0e0;
 }
 
 .card-footer {
-  padding: 16px 24px;
-  background: #F5F7FA;
+  padding: 16px 20px;
+  border-top: 1px solid #F0F2F5;
   text-align: center;
 }
 
-.view-history {
+.history-link {
   color: #0066CC;
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s;
 }
 
-.view-history:hover {
+.history-link:hover {
   color: #0052AA;
-  text-decoration: underline;
-}
-
-@media (max-width: 768px) {
-  .children-list {
-    flex-direction: column;
-  }
-
-  .status-card {
-    width: 100%;
-  }
 }
 </style>

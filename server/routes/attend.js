@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { Web3 } from 'web3';
 import dotenv from 'dotenv';
 import { readFileSync } from 'fs';
+import db from '../db/index.js';  // 引入数据库操作模块
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,9 +20,9 @@ const __dirname = path.dirname(__filename);
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// 数据库连接
+// 数据库连接（用于直接 SQL 操作的部分）
 const dbPath = path.join(__dirname, '../data/users.db');
-const db = new Database(dbPath);
+const dbase = new Database(dbPath);
 
 // 默认值
 const DEFAULT_CLASSROOM = '一年级1班';
@@ -88,7 +89,7 @@ const router = express.Router();
 // ========== 匿名映射管理（保持不变） ==========
 router.get('/mapping', authenticateToken, (req, res) => {
     try {
-        const stmt = db.prepare('SELECT * FROM anonymous_map ORDER BY anonymous_id');
+        const stmt = dbase.prepare('SELECT * FROM anonymous_map ORDER BY anonymous_id');
         const mappings = stmt.all();
         res.json({ success: true, data: mappings });
     } catch (error) {
@@ -99,7 +100,7 @@ router.get('/mapping', authenticateToken, (req, res) => {
 router.post('/mapping', authenticateToken, (req, res) => {
     try {
         const { anonymous_id, student_name, grade, class_name, parent_phone } = req.body;
-        const stmt = db.prepare(`
+        const stmt = dbase.prepare(`
             INSERT INTO anonymous_map (anonymous_id, student_name, grade, class_name, parent_phone)
             VALUES (?, ?, ?, ?, ?)
         `);
@@ -113,7 +114,7 @@ router.post('/mapping', authenticateToken, (req, res) => {
 router.put('/mapping/:anonymous_id', authenticateToken, (req, res) => {
     try {
         const { student_name, grade, class_name, parent_phone } = req.body;
-        const stmt = db.prepare(`
+        const stmt = dbase.prepare(`
             UPDATE anonymous_map SET student_name = ?, grade = ?, class_name = ?, parent_phone = ?
             WHERE anonymous_id = ?
         `);
@@ -126,7 +127,7 @@ router.put('/mapping/:anonymous_id', authenticateToken, (req, res) => {
 
 router.delete('/mapping/:anonymous_id', authenticateToken, (req, res) => {
     try {
-        const stmt = db.prepare('DELETE FROM anonymous_map WHERE anonymous_id = ?');
+        const stmt = dbase.prepare('DELETE FROM anonymous_map WHERE anonymous_id = ?');
         stmt.run(req.params.anonymous_id);
         res.json({ success: true });
     } catch (error) {
@@ -149,7 +150,7 @@ router.post('/calculate-merkle-root', authenticateToken, (req, res) => {
 
     const merkleRoot = generateMerkleRoot(records);
 
-    const insertStmt = db.prepare(`
+    const insertStmt = dbase.prepare(`
       INSERT INTO attendance_records (anonymous_id, status, time, classroom_id, device_id, merkle_root, created_at)
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
     `);
@@ -203,15 +204,12 @@ router.post('/upload-merkle-root', authenticateToken, async (req, res) => {
 
     console.log(`✅ 上链成功，交易哈希: ${receipt.transactionHash}`);
 
-    // 可选：将交易记录存入 merkle_roots 表（如果表存在）
+    // 将交易记录存入 attendance_history 表（使用 db 模块）
     try {
-      const insertTxStmt = db.prepare(`
-        INSERT INTO merkle_roots (root_hash, record_count, tx_hash, block_number, uploaded_at)
-        VALUES (?, ?, ?, ?, datetime('now'))
-      `);
-      insertTxStmt.run(merkleRoot, 1, receipt.transactionHash, receipt.blockNumber);
+      db.addAttendanceHistory(merkleRoot, receipt.blockNumber);
+      console.log(`📝 已记录存证历史: 区块 ${receipt.blockNumber}`);
     } catch (dbError) {
-      console.warn('⚠️ 无法写入 merkle_roots 表（可能不存在）:', dbError.message);
+      console.warn('⚠️ 无法写入 attendance_history 表:', dbError.message);
     }
 
     res.json({
@@ -240,7 +238,7 @@ router.post('/verify-merkle-root', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: '默克尔根格式错误' });
     }
 
-    const stmt = db.prepare('SELECT * FROM attendance_records WHERE merkle_root = ?');
+    const stmt = dbase.prepare('SELECT * FROM attendance_records WHERE merkle_root = ?');
     const record = stmt.get(merkleRoot);
 
     res.json({
@@ -266,7 +264,7 @@ router.post('/batch-verify', authenticateToken, async (req, res) => {
     }
 
     const placeholders = merkleRootList.map(() => '?').join(',');
-    const stmt = db.prepare(`SELECT merkle_root, created_at FROM attendance_records WHERE merkle_root IN (${placeholders})`);
+    const stmt = dbase.prepare(`SELECT merkle_root, created_at FROM attendance_records WHERE merkle_root IN (${placeholders})`);
     const records = stmt.all(...merkleRootList);
 
     const recordMap = new Map(records.map(r => [r.merkle_root, r.created_at]));
@@ -292,7 +290,7 @@ router.post('/batch-verify', authenticateToken, async (req, res) => {
 // ========== 考勤历史（保持不变） ==========
 router.get('/attendance-history', authenticateToken, async (req, res) => {
   try {
-    const stmt = db.prepare('SELECT * FROM attendance_records WHERE merkle_root IS NOT NULL ORDER BY created_at DESC LIMIT 100');
+    const stmt = dbase.prepare('SELECT * FROM attendance_records WHERE merkle_root IS NOT NULL ORDER BY created_at DESC LIMIT 100');
     const records = stmt.all();
 
     const formatted = records.map(r => ({
@@ -317,8 +315,8 @@ router.get('/attendance-history', authenticateToken, async (req, res) => {
 // ========== 统计（保持不变） ==========
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    const totalStmt = db.prepare('SELECT COUNT(*) as count FROM attendance_records');
-    const merkleStmt = db.prepare('SELECT COUNT(*) as count FROM attendance_records WHERE merkle_root IS NOT NULL');
+    const totalStmt = dbase.prepare('SELECT COUNT(*) as count FROM attendance_records');
+    const merkleStmt = dbase.prepare('SELECT COUNT(*) as count FROM attendance_records WHERE merkle_root IS NOT NULL');
     
     const total = totalStmt.get();
     const merkle = merkleStmt.get();

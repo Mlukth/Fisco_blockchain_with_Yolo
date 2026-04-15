@@ -6,9 +6,7 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-// 获取家长关联的学生（方案A：通过 parent_child 表直接查询，不依赖 phone 字段）
 const getParentStudents = (req) => {
-    // 直接根据用户名从 parent_child 表获取绑定的孩子
     return db.getChildrenByParent(req.user.username);
 };
 
@@ -25,11 +23,29 @@ router.get('/attendance', (req, res) => {
         for (const s of students) {
             const records = db.getAttendanceByAnonymousId(s.anonymous_id, 1);
             const todayRecord = records.find(r => r.time && r.time.startsWith(today));
+            
+            let merkleRoot = null;
+            let verified = null;
+            if (todayRecord) {
+                const detail = db.getDb().prepare(`
+                    SELECT merkle_root, verified FROM attendance_records WHERE id = ?
+                `).get(todayRecord.id);
+                if (detail) {
+                    merkleRoot = detail.merkle_root;
+                    verified = detail.verified;
+                }
+            }
+            
             results.push({
                 anonymousId: s.anonymous_id,
                 name: s.student_name,
                 class: s.class_name || s.classroom_id,
-                attendance: todayRecord ? { status: todayRecord.status, time: todayRecord.time } : { status: 'unknown', time: null }
+                attendance: todayRecord ? { 
+                    status: todayRecord.status, 
+                    time: todayRecord.time,
+                    merkleRoot: merkleRoot,
+                    verified: verified === 1 ? true : false
+                } : { status: 'unknown', time: null, merkleRoot: null, verified: false }
             });
         }
         res.json({ success: true, data: results });
@@ -44,14 +60,24 @@ router.get('/history', (req, res) => {
         const { month, anonymousId } = req.query;
         if (!anonymousId) return res.status(400).json({ success: false, error: '缺少 anonymousId' });
         
-        // 验证权限：确保该匿名ID属于当前家长
         const students = getParentStudents(req);
         const valid = students.find(s => s.anonymous_id === anonymousId);
         if (!valid) return res.status(403).json({ success: false, error: '无权访问' });
         
         const records = db.getMonthlyAttendanceByAnonymousId(anonymousId, month);
+        const enrichedRecords = records.map(r => {
+            const detail = db.getDb().prepare(`
+                SELECT merkle_root, verified FROM attendance_records WHERE id = ?
+            `).get(r.id);
+            return {
+                ...r,
+                merkleRoot: detail?.merkle_root || null,
+                verified: detail?.verified === 1 ? true : false
+            };
+        });
+        
         const stats = { present: 0, late: 0, absent: 0, leave: 0 };
-        records.forEach(r => { stats[r.status]++; });
+        enrichedRecords.forEach(r => { stats[r.status]++; });
         
         res.json({
             success: true,
@@ -59,7 +85,7 @@ router.get('/history', (req, res) => {
                 student: { name: valid.student_name, anonymousId, class: valid.class_name || valid.classroom_id },
                 month,
                 summary: stats,
-                records
+                records: enrichedRecords
             }
         });
     } catch (e) {

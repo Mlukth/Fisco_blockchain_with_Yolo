@@ -73,10 +73,11 @@
             <th>学生姓名</th>
             <th>状态</th>
             <th>打卡时间</th>
+            <th>存证状态</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in data.records" :key="r.student_name">
+          <tr v-for="r in data.records" :key="r.id">
             <td class="student-name">{{ r.student_name }}</td>
             <td>
               <span class="status-badge" :class="r.status">
@@ -84,6 +85,15 @@
               </span>
             </td>
             <td class="time">{{ formatTime(r.time) }}</td>
+            <td>
+              <!-- 区块链存证状态 -->
+              <span v-if="r.merkle_root" class="chain-badge verified" title="该记录已上链存证">
+                🔒 已存证
+              </span>
+              <span v-else class="chain-badge pending" title="尚未进行链上存证">
+                ⏳ 待存证
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -112,7 +122,9 @@ function statusText(status) {
 }
 
 function formatTime(time) {
-  return time ? new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '-'
+  if (!time) return '-'
+  const date = new Date(time)
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
 async function fetchSummary() {
@@ -128,7 +140,7 @@ onMounted(async () => {
   const res = await getClassAttendance()
   data.value = res.data
   await fetchSummary()
-  if (attendanceRate.value < 80) {
+  if (parseFloat(attendanceRate.value) < 80) {
     showMessage('今日出勤率较低，请关注学生状态', 'warning')
   }
 })
@@ -406,6 +418,26 @@ onMounted(async () => {
   color: #909399;
 }
 
+/* 区块链存证标签样式 */
+.chain-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chain-badge.verified {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+.chain-badge.pending {
+  background: #f5f5f5;
+  color: #757575;
+  border: 1px solid #e0e0e0;
+}
+
 @media (max-width: 1024px) {
   .summary-cards {
     grid-template-columns: 1fr;
@@ -413,6 +445,11 @@ onMounted(async () => {
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
   }
 }
 </style>

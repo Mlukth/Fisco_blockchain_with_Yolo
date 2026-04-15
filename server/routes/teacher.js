@@ -12,208 +12,193 @@ const dbase = new Database(dbPath);
 
 const router = express.Router();
 
-router.use(authenticateToken);
-
 const teacherOnly = (req, res, next) => {
   if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
-    return res.status(403).json({ success: false, error: '需要教师权限' });
+    return res.status(403).json({ success: false, error: '需要教师或管理员权限' });
   }
   next();
 };
 
+router.use(authenticateToken);
 router.use(teacherOnly);
 
-/**
- * GET /teacher/dashboard-summary - 首页摘要卡片（新增聚合接口）
- */
-router.get('/dashboard-summary', (req, res) => {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // 今日统计
-    const todayStats = dbase.prepare(`
-      SELECT 
-        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
-        SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late,
-        SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
-        SUM(CASE WHEN status = 'leave' THEN 1 ELSE 0 END) as leave,
-        COUNT(*) as total
-      FROM attendance_records
-      WHERE DATE(time) = ?
-    `).get(today);
-    
-    // 待处理异常数
-    const pendingCount = dbase.prepare(`
-      SELECT COUNT(*) as count FROM attendance_records
-      WHERE status IN ('late', 'absent')
-    `).get().count;
-    
-    // 上周平均出勤率
-    const lastWeekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const lastWeekStats = dbase.prepare(`
-      SELECT 
-        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
-        COUNT(*) as total
-      FROM attendance_records
-      WHERE DATE(time) >= ? AND DATE(time) <= ?
-    `).get(lastWeekStart, today);
-    
-    const lastWeekRate = lastWeekStats.total > 0 
-      ? ((lastWeekStats.present / lastWeekStats.total) * 100).toFixed(1) 
-      : '0.0';
-    
-    res.json({
-      success: true,
-      data: {
-        today: {
-          present: todayStats.present || 0,
-          late: todayStats.late || 0,
-          absent: todayStats.absent || 0,
-          leave: todayStats.leave || 0,
-          total: todayStats.total || 0,
-          rate: todayStats.total > 0 ? ((todayStats.present / todayStats.total) * 100).toFixed(1) : '0.0'
-        },
-        pendingExceptions: pendingCount,
-        lastWeekRate: parseFloat(lastWeekRate)
-      }
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
+const DEFAULT_CLASSROOM = '一年级1班';
 
-/**
- * GET /teacher/class/attendance - 今日班级考勤
- */
+// ========== 今日班级考勤 ==========
 router.get('/class/attendance', (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     
     const records = dbase.prepare(`
-      SELECT a.*, m.student_name, m.class_name
+      SELECT 
+        a.id,
+        a.anonymous_id,
+        m.student_name,
+        a.status,
+        a.time,
+        a.classroom_id,
+        a.device_id,
+        a.merkle_root
       FROM attendance_records a
       LEFT JOIN anonymous_map m ON a.anonymous_id = m.anonymous_id
-      WHERE DATE(a.time) = ?
+      WHERE DATE(a.time) = ? AND a.classroom_id = ?
       ORDER BY a.time DESC
-    `).all(today);
+    `).all(today, DEFAULT_CLASSROOM);
     
     const stats = { present: 0, late: 0, absent: 0, leave: 0, total: records.length };
-    records.forEach(r => { if (stats.hasOwnProperty(r.status)) stats[r.status]++; });
+    records.forEach(r => { if (stats[r.status] !== undefined) stats[r.status]++; });
     
     res.json({
       success: true,
       data: {
-        classroom: '一年级1班',
+        classroom: DEFAULT_CLASSROOM,
         date: today,
         stats,
-        records: records.map(r => ({
-          id: r.id,
-          anonymous_id: r.anonymous_id,
-          student_name: r.student_name || r.anonymous_id,
-          status: r.status,
-          time: r.time,
-          classroom_id: r.classroom_id,
-          device_id: r.device_id,
-          is_reviewed: 0
-        }))
+        records
       }
     });
   } catch (e) {
+    console.error('班级考勤查询失败:', e);
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-/**
- * GET /teacher/class/history - 历史统计
- */
+// ========== 历史统计 ==========
 router.get('/class/history', (req, res) => {
   try {
     const { start, end } = req.query;
-    const startDate = start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const endDate = end || new Date().toISOString().slice(0, 10);
     
-    const dailyStats = dbase.prepare(`
+    let dateCondition = '';
+    let params = [];
+    if (start && end) {
+      dateCondition = 'WHERE DATE(a.time) BETWEEN ? AND ?';
+      params = [start, end];
+    } else {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 7);
+      dateCondition = 'WHERE DATE(a.time) BETWEEN ? AND ?';
+      params = [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]];
+    }
+    params.push(DEFAULT_CLASSROOM);
+    
+    const rows = dbase.prepare(`
       SELECT 
-        DATE(time) as date,
-        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
-        SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late,
-        SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent,
-        SUM(CASE WHEN status = 'leave' THEN 1 ELSE 0 END) as leave,
+        DATE(a.time) as date,
+        SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present,
+        SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as late,
+        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent,
+        SUM(CASE WHEN a.status = 'leave' THEN 1 ELSE 0 END) as leave,
         COUNT(*) as total
-      FROM attendance_records
-      WHERE DATE(time) BETWEEN ? AND ?
-      GROUP BY DATE(time)
-      ORDER BY date DESC
-    `).all(startDate, endDate);
+      FROM attendance_records a
+      ${dateCondition} AND a.classroom_id = ?
+      GROUP BY DATE(a.time)
+      ORDER BY date ASC
+    `).all(...params);
     
-    let totalPresent = 0, totalLate = 0, totalAbsent = 0, totalAll = 0;
-    dailyStats.forEach(d => {
-      totalPresent += d.present;
-      totalLate += d.late;
-      totalAbsent += d.absent;
-      totalAll += d.total;
+    const history = rows.map(r => ({
+      ...r,
+      rate: r.total > 0 ? ((r.present / r.total) * 100).toFixed(1) : '0.0'
+    }));
+    
+    const summary = {
+      days: history.length,
+      avgRate: history.length > 0 
+        ? (history.reduce((sum, h) => sum + parseFloat(h.rate), 0) / history.length).toFixed(1)
+        : '0.0',
+      totalLate: history.reduce((sum, h) => sum + h.late, 0),
+      totalAbsent: history.reduce((sum, h) => sum + h.absent, 0)
+    };
+    
+    res.json({
+      success: true,
+      data: { history, summary }
     });
+  } catch (e) {
+    console.error('历史统计失败:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ========== 异常复核列表 ==========
+router.get('/exceptions', (req, res) => {
+  try {
+    // 由于没有复核字段，暂时返回空数组或基于状态筛选
+    const records = dbase.prepare(`
+      SELECT 
+        a.id,
+        a.anonymous_id,
+        m.student_name,
+        a.status,
+        a.time
+      FROM attendance_records a
+      LEFT JOIN anonymous_map m ON a.anonymous_id = m.anonymous_id
+      WHERE a.classroom_id = ? AND a.status IN ('late', 'absent')
+      ORDER BY a.time DESC
+    `).all(DEFAULT_CLASSROOM);
     
-    const avgRate = totalAll > 0 ? (totalPresent / totalAll * 100) : 0;
+    res.json({ success: true, data: records });
+  } catch (e) {
+    console.error('异常列表失败:', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ========== 提交复核（模拟） ==========
+router.post('/review', (req, res) => {
+  const { recordId, isReviewed, note } = req.body;
+  console.log(`[模拟复核] recordId=${recordId}, isReviewed=${isReviewed}, note=${note}`);
+  res.json({ success: true, message: '复核已提交（模拟）' });
+});
+
+// ========== 仪表盘摘要 ==========
+router.get('/dashboard-summary', (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const todayStats = dbase.prepare(`
+      SELECT status, COUNT(*) as count FROM attendance_records 
+      WHERE DATE(time) = ? AND classroom_id = ?
+      GROUP BY status
+    `).all(today, DEFAULT_CLASSROOM);
+    
+    const summary = { present: 0, late: 0, absent: 0, leave: 0, total: 0 };
+    todayStats.forEach(s => { summary[s.status] = s.count; summary.total += s.count; });
+    const todayRate = summary.total > 0 ? ((summary.present / summary.total) * 100).toFixed(1) : '0.0';
+    
+    const pending = dbase.prepare(`
+      SELECT COUNT(*) as count FROM attendance_records 
+      WHERE classroom_id = ? AND status IN ('late', 'absent')
+    `).get(DEFAULT_CLASSROOM).count;
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 7);
+    const weekRows = dbase.prepare(`
+      SELECT DATE(time) as date, 
+             SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present,
+             COUNT(*) as total
+      FROM attendance_records 
+      WHERE DATE(time) BETWEEN ? AND ? AND classroom_id = ?
+      GROUP BY DATE(time)
+    `).all(startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0], DEFAULT_CLASSROOM);
+    
+    let lastWeekRate = 0;
+    if (weekRows.length > 0) {
+      const rates = weekRows.map(r => r.total > 0 ? (r.present / r.total) * 100 : 0);
+      lastWeekRate = (rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(1);
+    }
     
     res.json({
       success: true,
       data: {
-        summary: {
-          totalDays: dailyStats.length,
-          avgRate: parseFloat(avgRate.toFixed(1)),
-          lateCount: totalLate,
-          absentCount: totalAbsent
-        },
-        history: dailyStats
+        today: { ...summary, rate: parseFloat(todayRate) },
+        pendingExceptions: pending,
+        lastWeekRate: parseFloat(lastWeekRate)
       }
     });
   } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-/**
- * GET /teacher/exceptions - 异常复核列表
- */
-router.get('/exceptions', (req, res) => {
-  try {
-    const records = dbase.prepare(`
-      SELECT a.*, m.student_name
-      FROM attendance_records a
-      LEFT JOIN anonymous_map m ON a.anonymous_id = m.anonymous_id
-      WHERE a.status IN ('late', 'absent')
-      ORDER BY a.time DESC
-      LIMIT 50
-    `).all();
-    
-    res.json({
-      success: true,
-      data: records.map(r => ({
-        id: r.id,
-        anonymous_id: r.anonymous_id,
-        student_name: r.student_name || r.anonymous_id,
-        status: r.status,
-        time: r.time,
-        classroom_id: r.classroom_id,
-        device_id: r.device_id,
-        is_reviewed: 0
-      }))
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-/**
- * POST /teacher/review - 提交复核（当前仅模拟，未来扩展）
- */
-router.post('/review', (req, res) => {
-  try {
-    const { recordId, isReviewed, note } = req.body;
-    // 暂不更新数据库，返回成功以兼容前端
-    res.json({ success: true });
-  } catch (e) {
+    console.error('摘要获取失败:', e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

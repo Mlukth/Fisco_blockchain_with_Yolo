@@ -3,10 +3,7 @@
 > vite --port 8000 --host
 
 
-  VITE v5.4.21  ready in 810 ms
+  VITE v5.4.21  ready in 605 ms
 
   ➜  Local:   http://localhost:8000/
   ➜  Network: http://192.168.171.157:8000/
-6:14:50 AM [vite] http proxy error: /api/auth/login
-Error: connect ECONNREFUSED 192.168.171.157:3002
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
