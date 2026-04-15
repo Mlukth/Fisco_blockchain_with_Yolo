@@ -4,6 +4,8 @@ import { authenticateToken } from '../middleware/auth.js';
 import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Web3 } from 'web3';
+import { readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -109,10 +111,14 @@ router.get('/devices', (req, res) => {
 router.post('/devices', (req, res) => {
   try {
     const { device_id, device_name, classroom_id, ip_address } = req.body;
+    // 参数校验：device_id 必填
+    if (!device_id) {
+      return res.status(400).json({ success: false, error: 'device_id 不能为空' });
+    }
     dbase.prepare(`
       INSERT INTO devices (device_id, device_name, classroom_id, status, ip_address, last_heartbeat)
       VALUES (?, ?, ?, 'offline', ?, datetime('now'))
-    `).run(device_id, device_name, classroom_id, ip_address);
+    `).run(device_id, device_name || '', classroom_id || '', ip_address || '');
     res.json({ success: true, data: { id: device_id } });
   } catch (e) {
     res.status(400).json({ success: false, error: e.message });
@@ -290,6 +296,34 @@ router.delete('/parent-bindings', (req, res) => {
     `).run(parent_username, child_anonymous_id);
     res.json({ success: true });
   } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ========== 链上统计（新增） ==========
+router.get('/chain-stats', async (req, res) => {
+  try {
+    // 复用 attend.js 中的 Web3 配置
+    const RPC_URL = process.env.FISCO_RPC_URL || 'http://192.168.171.157:8545';
+    const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+    const artifactPath = path.join(__dirname, '../../artifacts/AttendanceProof.json');
+    const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+    const abi = artifact.abi;
+    
+    const web3 = new Web3(RPC_URL);
+    const contract = new web3.eth.Contract(abi, CONTRACT_ADDRESS);
+    
+    const count = await contract.methods.getMerkleRootCount().call();
+    
+    res.json({
+      success: true,
+      data: {
+        totalMerkleRoots: Number(count),
+        contractAddress: CONTRACT_ADDRESS
+      }
+    });
+  } catch (e) {
+    console.error('获取链上统计失败:', e);
     res.status(500).json({ success: false, error: e.message });
   }
 });

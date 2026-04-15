@@ -58,6 +58,12 @@
         <div class="stat-value primary">{{ stats.todayAttendanceRate || 0 }}%</div>
         <div class="stat-label">今日出勤率</div>
       </div>
+      <!-- 新增：链上存证总数卡片 -->
+      <div class="stat-card chain">
+        <div class="stat-icon">🔗</div>
+        <div class="stat-value chain-value">{{ chainStats.totalMerkleRoots ?? '...' }}</div>
+        <div class="stat-label">链上存证总数</div>
+      </div>
     </div>
 
     <!-- 高级维护卡片 -->
@@ -91,6 +97,7 @@ const warning = ref(false)
 const verifyMsg = ref('')
 const verifying = ref(false)
 const alertSummary = ref(null)
+const chainStats = ref({ totalMerkleRoots: 0 })
 const showMessage = inject('showMessage')
 
 const currentDate = new Date().toLocaleDateString('zh-CN', {
@@ -103,6 +110,7 @@ const currentDate = new Date().toLocaleDateString('zh-CN', {
 onMounted(async () => {
   await fetchStats()
   await fetchAlertSummary()
+  await fetchChainStats()
 })
 
 async function fetchStats() {
@@ -117,6 +125,16 @@ async function fetchAlertSummary() {
     alertSummary.value = res.data
   } catch (e) {
     console.error('获取告警摘要失败', e)
+  }
+}
+
+async function fetchChainStats() {
+  try {
+    const res = await request.get('/admin/chain-stats')
+    chainStats.value = res.data
+  } catch (e) {
+    console.error('获取链上统计失败', e)
+    chainStats.value = { totalMerkleRoots: '?' }
   }
 }
 
@@ -256,7 +274,7 @@ async function runVerify() {
 /* 统计卡片组 */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -279,6 +297,10 @@ async function runVerify() {
   background: linear-gradient(135deg, #E6F4FF 0%, #BAE0FF 100%);
 }
 
+.stat-card.chain {
+  background: linear-gradient(135deg, #E6F4FF 0%, #BAE0FF 100%);
+}
+
 .stat-icon {
   font-size: 32px;
   margin-bottom: 12px;
@@ -292,6 +314,10 @@ async function runVerify() {
 }
 
 .stat-value.primary {
+  color: #0066CC;
+}
+
+.stat-value.chain-value {
   color: #0066CC;
 }
 
@@ -395,7 +421,7 @@ async function runVerify() {
 /* 响应式 */
 @media (max-width: 1200px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
